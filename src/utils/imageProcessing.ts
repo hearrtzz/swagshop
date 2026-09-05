@@ -240,7 +240,7 @@ export function renderProcessedImage(
         applyAsciiLayer(pipeline, state, targetW, targetH, hasTransparency);
         break;
       case 'fisheye':
-        applyFisheyeLayer(pipeline, state, targetW, targetH);
+        applyFisheyeLayer(pipeline, state, targetW, targetH, hasTransparency);
         break;
       case 'jpeg':
         applyJpegLayer(pipeline, state, targetW, targetH);
