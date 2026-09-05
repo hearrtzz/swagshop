@@ -388,7 +388,7 @@ export const MacMenuBar: React.FC<MacMenuBarProps> = ({
 
         {/* 3D/CARTOON Button */}
         <button
-          onClick={() => { window.location.href = '/3d-studio.html'; }}
+          onClick={() => { window.location.href = './3d-studio.html'; }}
           title="Entrar no Estúdio 3D e Cartoon"
           className="flex items-center gap-1.5 px-2.5 py-1 bg-fuchsia-600 hover:bg-fuchsia-500 border border-fuchsia-500 text-white rounded text-[12px] font-bold shadow-lg shadow-fuchsia-500/20 transition-all cursor-pointer"
         >
