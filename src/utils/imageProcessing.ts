@@ -196,12 +196,32 @@ export function renderProcessedImage(
   pipeline.imgData = initialDataObj;
 
   // Execute layers in the user-defined order
-  const order = (state.layerOrder && state.layerOrder.length > 0) ? state.layerOrder : DEFAULT_LAYER_ORDER;
+  const orderRaw = (state.layerOrder && state.layerOrder.length > 0) ? state.layerOrder : DEFAULT_LAYER_ORDER;
+  const hiddenLayers = state.hiddenLayers || [];
+  const order = orderRaw.filter(id => !hiddenLayers.includes(id));
 
   for (const layerId of order) {
     switch (layerId) {
-      case 'base':
-        applyBaseLayer(pipeline, state, targetW, targetH);
+      case 'lens':
+        applyLensLayer(pipeline, state);
+        break;
+      case 'exposure':
+        applyExposureLayer(pipeline, state);
+        break;
+      case 'warmth':
+        applyWarmthLayer(pipeline, state);
+        break;
+      case 'tint':
+        applyTintLayer(pipeline, state);
+        break;
+      case 'brightness':
+        applyBrightnessLayer(pipeline, state);
+        break;
+      case 'contrast':
+        applyContrastLayer(pipeline, state);
+        break;
+      case 'saturation':
+        applySaturationLayer(pipeline, state);
         break;
       case 'curves':
         applyCurvesLayer(pipeline, state, targetW, targetH);
@@ -238,6 +258,9 @@ export function renderProcessedImage(
         break;
       case 'ascii':
         applyAsciiLayer(pipeline, state, targetW, targetH, hasTransparency);
+        break;
+      case 'asciiText':
+        applyAsciiTextLayer(pipeline, state, targetW, targetH, hasTransparency);
         break;
       case 'fisheye':
         applyFisheyeLayer(pipeline, state, targetW, targetH, hasTransparency);
@@ -309,128 +332,85 @@ export function applyJpegLayer(pipeline: PipelineManager, state: PhotoEffectsSta
 }
 
 // 1. Base Layer (Color Balance, Exposure, Contrast, Warmth, Invert, Threshold, Sharpness)
-export function applyBaseLayer(
+export function applyLensLayer(
   pipeline: PipelineManager,
-  state: PhotoEffectsState,
-  targetW: number,
-  targetH: number
+  state: PhotoEffectsState
 ) {
-  const bright = state.brightness * 1.25;
-  const contrast = (state.contrast + 100) / 100;
-  const sat = (state.saturation + 100) / 100;
-  const exp = Math.pow(2, state.exposure / 50);
-  const warmth = state.warmth;
-  const tint = state.tint;
   const preset = state.preset;
-  const thresholdVal = state.threshold;
   const solarizeVal = state.solarize / 100.0;
   const doInvert = state.invert;
 
   const isIdentity = (
-    bright === 0 &&
-    contrast === 1 &&
-    sat === 1 &&
-    exp === 1 &&
-    warmth === 0 &&
-    tint === 0 &&
     preset === 'none' &&
-    thresholdVal === 0 &&
     solarizeVal === 0 &&
     !doInvert
   );
 
-  if (isIdentity) return;
+  if (!isIdentity) {
+    const imgData = pipeline.getPixels();
+    const d = imgData.data;
 
-  const imgData = pipeline.getPixels();
-  const d = imgData.data;
+    for (let i = 0; i < d.length; i += 4) {
+        if (d[i + 3] === 0) continue;
 
-  for (let i = 0; i < d.length; i += 4) {
-      if (d[i + 3] === 0) continue;
+        let r = d[i], g = d[i + 1], b = d[i + 2];
+        let lum = 0.299 * r + 0.587 * g + 0.114 * b;
 
-      let r = d[i];
-      let g = d[i + 1];
-      let b = d[i + 2];
-
-      if (exp !== 1.0) {
-        r *= exp; g *= exp; b *= exp;
-      }
-
-      if (warmth !== 0) {
-        r += warmth * 0.45;
-        b -= warmth * 0.45;
-      }
-      if (tint !== 0) {
-        g -= tint * 0.35;
-        r += tint * 0.15;
-        b += tint * 0.15;
-      }
-
-      r = (r - 128) * contrast + 128 + bright;
-      g = (g - 128) * contrast + 128 + bright;
-      b = (b - 128) * contrast + 128 + bright;
-
-      let lum = 0.299 * r + 0.587 * g + 0.114 * b;
-      r = lum + (r - lum) * sat;
-      g = lum + (g - lum) * sat;
-      b = lum + (b - lum) * sat;
-
-      if (solarizeVal > 0) {
-        const invLum = 0.299 * r + 0.587 * g + 0.114 * b;
-        if (invLum > 128) {
-          r = r * (1 - solarizeVal) + (255 - r) * solarizeVal;
-          g = g * (1 - solarizeVal) + (255 - g) * solarizeVal;
-          b = b * (1 - solarizeVal) + (255 - b) * solarizeVal;
+        if (solarizeVal > 0) {
+          if (lum > 128) {
+            r = r * (1 - solarizeVal) + (255 - r) * solarizeVal;
+            g = g * (1 - solarizeVal) + (255 - g) * solarizeVal;
+            b = b * (1 - solarizeVal) + (255 - b) * solarizeVal;
+          }
         }
-      }
 
-      if (doInvert) {
-        r = 255 - r;
-        g = 255 - g;
-        b = 255 - b;
-      }
+        if (doInvert) {
+          r = 255 - r;
+          g = 255 - g;
+          b = 255 - b;
+        }
 
-      
+        if (preset === 'digicam') {
+          b = Math.min(255, b * 1.08 + (255 - lum) * 0.08);
+          g = Math.min(255, g * 1.04);
+          r = Math.min(255, r * 0.98 + (lum > 180 ? (lum - 180) * 0.25 : 0));
+        } else if (preset === 'insta2012') {
+          r = Math.min(255, r * 1.15 + 14);
+          g = Math.min(255, g * 0.95 + 8);
+          b = Math.min(255, b * 0.85 + 24);
+        } else if (preset === 'disposable') {
+          r = Math.min(255, r * 1.12 + 8);
+          g = Math.min(255, g * 1.04 + 6);
+          b = Math.min(255, b * 0.90);
+        } else if (preset === 'y2k') {
+          r = Math.min(255, r * 0.92);
+          g = Math.min(255, g * 1.08 + 6);
+          b = Math.min(255, b * 1.18 + 16);
+        } else if (preset === 'cinematic_teal') {
+          const t = lum / 255.0;
+          r = Math.min(255, r * (0.8 + 0.4 * t));
+          g = Math.min(255, g * (0.95 + 0.1 * t));
+          b = Math.min(255, b * (1.25 - 0.4 * t));
+        } else if (preset === 'polaroid_vintage') {
+          r = Math.min(255, r * 1.08 + 12);
+          g = Math.min(255, g * 1.02 + 6);
+          b = Math.min(255, b * 0.88 + 10);
+        } else if (preset === 'monochrome_noir') {
+          r = lum; g = lum; b = lum;
+        }
 
-      if (preset === 'digicam') {
-        b = Math.min(255, b * 1.08 + (255 - lum) * 0.08);
-        g = Math.min(255, g * 1.04);
-        r = Math.min(255, r * 0.98 + (lum > 180 ? (lum - 180) * 0.25 : 0));
-      } else if (preset === 'insta2012') {
-        r = Math.min(255, r * 1.15 + 14);
-        g = Math.min(255, g * 0.95 + 8);
-        b = Math.min(255, b * 0.85 + 24);
-      } else if (preset === 'disposable') {
-        r = Math.min(255, r * 1.12 + 8);
-        g = Math.min(255, g * 1.04 + 6);
-        b = Math.min(255, b * 0.90);
-      } else if (preset === 'y2k') {
-        r = Math.min(255, r * 0.92);
-        g = Math.min(255, g * 1.08 + 6);
-        b = Math.min(255, b * 1.18 + 16);
-      } else if (preset === 'cinematic_teal') {
-        const t = lum / 255.0;
-        r = Math.min(255, r * (0.8 + 0.4 * t));
-        g = Math.min(255, g * (0.95 + 0.1 * t));
-        b = Math.min(255, b * (1.25 - 0.4 * t));
-      } else if (preset === 'polaroid_vintage') {
-        r = Math.min(255, r * 1.08 + 12);
-        g = Math.min(255, g * 1.02 + 6);
-        b = Math.min(255, b * 0.88 + 10);
-      } else if (preset === 'monochrome_noir') {
-        r = lum; g = lum; b = lum;
-      }
-
-      d[i] = Math.max(0, Math.min(255, Math.round(r)));
-      d[i + 1] = Math.max(0, Math.min(255, Math.round(g)));
-      d[i + 2] = Math.max(0, Math.min(255, Math.round(b)));
+        d[i] = Math.max(0, Math.min(255, Math.round(r)));
+        d[i + 1] = Math.max(0, Math.min(255, Math.round(g)));
+        d[i + 2] = Math.max(0, Math.min(255, Math.round(b)));
     }
+  }
 
-  // Sharpness unsharp mask (uses Canvas API, so we must sync first)
+  // Sharpness unsharp mask
   if (state.sharpness > 0) {
     pipeline.sync();
     const sharpCanvas = document.createElement('canvas');
-    sharpCanvas.width = targetW;
-    sharpCanvas.height = targetH;
+    sharpCanvas.width = pipeline.ctx.canvas.width;
+    sharpCanvas.height = pipeline.ctx.canvas.height;
     const sctx = sharpCanvas.getContext('2d');
     if (sctx) {
       sctx.drawImage(pipeline.ctx.canvas, 0, 0);
@@ -443,7 +423,6 @@ export function applyBaseLayer(
   }
 }
 
-// 2. Curves Layer
 export function applyCurvesLayer(
   pipeline: PipelineManager,
   state: PhotoEffectsState,
@@ -926,6 +905,74 @@ export function applyTimestampLayer(
   ctx.restore();
 }
 
+
+export function applyAsciiTextLayer(pipeline: PipelineManager, state: PhotoEffectsState, targetW: number, targetH: number, hasTransparency: boolean = false) {
+  if (state.asciiText <= 0) return;
+  pipeline.sync();
+  const ctx = pipeline.ctx;
+  
+  // Resolution scaling based on slider: 100% is fine details (smaller text), 1% is big text
+  // slider is 0 to 100
+  const sliderScale = Math.max(1, state.asciiText); // 1 to 100
+  // text size ranges from roughly 8px to 48px
+  const fontSize = Math.max(8, Math.round(48 - (sliderScale / 100) * 40));
+  const stepX = fontSize * 0.6; // character width approx
+  const stepY = fontSize;
+  
+  const sampleW = Math.ceil(targetW / stepX);
+  const sampleH = Math.ceil(targetH / stepY);
+  
+  const temp = document.createElement('canvas');
+  temp.width = sampleW;
+  temp.height = sampleH;
+  const tctx = temp.getContext('2d');
+  if (!tctx) return;
+  
+  tctx.imageSmoothingEnabled = true;
+  tctx.drawImage(ctx.canvas, 0, 0, sampleW, sampleH);
+  const data = tctx.getImageData(0, 0, sampleW, sampleH).data;
+  
+  ctx.clearRect(0, 0, targetW, targetH);
+  if (!hasTransparency) {
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, targetW, targetH);
+  }
+  
+  const textString = state.asciiTextString || 'Hello World. ';
+  let charIndex = 0;
+  
+  ctx.font = `bold ${fontSize}px monospace`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  
+  for (let y = 0; y < sampleH; y++) {
+    for (let x = 0; x < sampleW; x++) {
+      const idx = (y * sampleW + x) * 4;
+      if (data[idx + 3] < 10) {
+        charIndex = (charIndex + 1) % textString.length;
+        continue;
+      }
+      
+      const r = data[idx];
+      const g = data[idx + 1];
+      const b = data[idx + 2];
+      
+      let char = '';
+      if (state.asciiTextRandom) {
+        const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%&*+<>?";
+        const pseudoRandom = Math.abs(Math.sin(x * 12.9898 + y * 78.233) * 43758.5453);
+        char = charset[Math.floor(pseudoRandom * charset.length) % charset.length];
+      } else {
+        char = textString[charIndex];
+        charIndex = (charIndex + 1) % textString.length;
+      }
+      
+      ctx.fillStyle = `rgb(${r},${g},${b})`;
+      ctx.fillText(char, x * stepX + stepX/2, y * stepY + stepY/2);
+    }
+  }
+}
+
 export function applyAsciiLayer(pipeline: PipelineManager, state: PhotoEffectsState, targetW: number, targetH: number, hasTransparency: boolean = false) {
   if (state.ascii <= 0) return;
   pipeline.sync();
@@ -1065,4 +1112,208 @@ export function applyFisheyeLayer(
     }
   }
   ctx.putImageData(outImgData, 0, 0);
+}
+
+// Cyber Trace / HUD Node Layer
+export function applyCyberTraceLayer(
+  pipeline: PipelineManager,
+  state: import('../types').PhotoEffectsState,
+  targetW: number,
+  targetH: number
+) {
+  if (state.cyberTrace === 0) return;
+  pipeline.sync();
+  const ctx = pipeline.ctx;
+  const imgData = ctx.getImageData(0, 0, targetW, targetH);
+  const data = imgData.data;
+
+  const opacity = state.cyberTrace / 100;
+  // Map density (0-100) to grid size (larger density = smaller grid = more nodes)
+  const gridSize = Math.max(16, 120 - state.cyberTraceDensity);
+  const threshold = state.cyberTraceThreshold;
+  
+  const nodes: {x: number, y: number, size: number}[] = [];
+
+  // 1. Detect dark spots using grid sampling
+  for (let y = gridSize / 2; y < targetH - gridSize/2; y += gridSize) {
+    for (let x = gridSize / 2; x < targetW - gridSize/2; x += gridSize) {
+      const px = Math.floor(x);
+      const py = Math.floor(y);
+      const idx = (py * targetW + px) * 4;
+      
+      const r = data[idx];
+      const g = data[idx+1];
+      const b = data[idx+2];
+      const luma = r * 0.299 + g * 0.587 + b * 0.114;
+
+      if (luma < threshold) {
+        // Size proportional to darkness
+        const sizeMult = 0.5 + ((threshold - luma) / threshold) * 0.8;
+        nodes.push({ x: px, y: py, size: gridSize * 0.4 * sizeMult });
+      }
+    }
+  }
+
+  if (nodes.length === 0) return;
+
+  // 2. Draw connections and boxes
+  ctx.save();
+  ctx.globalAlpha = opacity;
+  ctx.strokeStyle = state.cyberTraceColor || '#22c55e';
+  ctx.fillStyle = state.cyberTraceColor || '#22c55e';
+  ctx.lineWidth = Math.max(1, targetW / 800);
+  ctx.shadowColor = state.cyberTraceColor || '#22c55e';
+  ctx.shadowBlur = 12 * opacity;
+  ctx.globalCompositeOperation = 'screen';
+
+  // O(N) Grid-based nearest neighbor connection algorithm for massive performance gains
+  const nodeGrid: Map<string, typeof nodes[0]> = new Map();
+  nodes.forEach(n => {
+      // Map to grid coordinates
+      const gx = Math.floor(n.x / gridSize);
+      const gy = Math.floor(n.y / gridSize);
+      nodeGrid.set(`${gx},${gy}`, n);
+  });
+
+  ctx.beginPath();
+  nodes.forEach(n => {
+      const gx = Math.floor(n.x / gridSize);
+      const gy = Math.floor(n.y / gridSize);
+      
+      // Look for right and down neighbors to avoid duplicate drawing
+      const neighbors = [
+          nodeGrid.get(`${gx+1},${gy}`),
+          nodeGrid.get(`${gx},${gy+1}`),
+          nodeGrid.get(`${gx+1},${gy+1}`)
+      ].filter(Boolean) as typeof nodes;
+
+      neighbors.forEach(n2 => {
+          ctx.moveTo(n.x, n.y);
+          if (state.cyberTraceMode === 'orthogonal') {
+              const midX = (n.x + n2.x) / 2;
+              ctx.lineTo(midX, n.y);
+              ctx.lineTo(midX, n2.y);
+              ctx.lineTo(n2.x, n2.y);
+          } else if (state.cyberTraceMode === 'curve') {
+              const midX = (n.x + n2.x) / 2;
+              ctx.bezierCurveTo(midX, n.y, midX, n2.y, n2.x, n2.y);
+          } else {
+              ctx.lineTo(n2.x, n2.y);
+          }
+      });
+  });
+  ctx.stroke();
+
+  // Draw node boxes & labels
+  const fontSize = Math.max(8, targetW / 120);
+  ctx.font = `${fontSize}px monospace`;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+
+  nodes.forEach((n, i) => {
+    // Main Box
+    ctx.strokeRect(n.x - n.size/2, n.y - n.size/2, n.size, n.size);
+
+    // Decorative lines inside the box (horizontal scanlines)
+    ctx.save();
+    ctx.globalAlpha = opacity * 0.4;
+    ctx.beginPath();
+    for(let dy = -n.size/2 + 4; dy < n.size/2 - 2; dy += 4) {
+        ctx.moveTo(n.x - n.size/2 + 2, n.y + dy);
+        ctx.lineTo(n.x + n.size/2 - 2, n.y + dy);
+    }
+    ctx.stroke();
+    ctx.restore();
+
+    // Occasional Text Label Box for some nodes
+    if (i % 3 === 0) {
+        const titleW = fontSize * 7;
+        const titleH = fontSize + 4;
+        
+        ctx.save();
+        ctx.shadowBlur = 0;
+        // Background box for text
+        ctx.fillRect(n.x - n.size/2, n.y - n.size/2 - titleH - 2, titleW, titleH);
+        
+        // Text inside box
+        ctx.fillStyle = '#0b0c0e'; // dark text
+        ctx.fillText(`C_${i.toString(16).toUpperCase().padStart(3, '0')}`, n.x - n.size/2 + 4, n.y - n.size/2 - titleH);
+        ctx.restore();
+    }
+  });
+
+  ctx.restore();
+}
+
+export function applyExposureLayer(pipeline: PipelineManager, state: PhotoEffectsState) {
+  const exp = Math.pow(2, state.exposure / 50);
+  if (exp === 1.0) return;
+  const d = pipeline.getPixels().data;
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i+3] === 0) continue;
+    d[i] = Math.min(255, d[i] * exp);
+    d[i+1] = Math.min(255, d[i+1] * exp);
+    d[i+2] = Math.min(255, d[i+2] * exp);
+  }
+}
+
+export function applyWarmthLayer(pipeline: PipelineManager, state: PhotoEffectsState) {
+  if (state.warmth === 0) return;
+  const warmth = state.warmth;
+  const d = pipeline.getPixels().data;
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i+3] === 0) continue;
+    d[i] = Math.min(255, Math.max(0, d[i] + warmth * 0.45));
+    d[i+2] = Math.min(255, Math.max(0, d[i+2] - warmth * 0.45));
+  }
+}
+
+export function applyTintLayer(pipeline: PipelineManager, state: PhotoEffectsState) {
+  if (state.tint === 0) return;
+  const tint = state.tint;
+  const d = pipeline.getPixels().data;
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i+3] === 0) continue;
+    d[i+1] = Math.min(255, Math.max(0, d[i+1] - tint * 0.35));
+    d[i] = Math.min(255, Math.max(0, d[i] + tint * 0.15));
+    d[i+2] = Math.min(255, Math.max(0, d[i+2] + tint * 0.15));
+  }
+}
+
+export function applyBrightnessLayer(pipeline: PipelineManager, state: PhotoEffectsState) {
+  if (state.brightness === 0) return;
+  const bright = state.brightness * 1.25;
+  const d = pipeline.getPixels().data;
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i+3] === 0) continue;
+    d[i] = Math.min(255, Math.max(0, d[i] + bright));
+    d[i+1] = Math.min(255, Math.max(0, d[i+1] + bright));
+    d[i+2] = Math.min(255, Math.max(0, d[i+2] + bright));
+  }
+}
+
+export function applyContrastLayer(pipeline: PipelineManager, state: PhotoEffectsState) {
+  if (state.contrast === 0) return;
+  const contrast = (state.contrast + 100) / 100;
+  const d = pipeline.getPixels().data;
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i+3] === 0) continue;
+    d[i] = Math.min(255, Math.max(0, (d[i] - 128) * contrast + 128));
+    d[i+1] = Math.min(255, Math.max(0, (d[i+1] - 128) * contrast + 128));
+    d[i+2] = Math.min(255, Math.max(0, (d[i+2] - 128) * contrast + 128));
+  }
+}
+
+export function applySaturationLayer(pipeline: PipelineManager, state: PhotoEffectsState) {
+  if (state.saturation === 0) return;
+  const sat = (state.saturation + 100) / 100;
+  const d = pipeline.getPixels().data;
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i+3] === 0) continue;
+    let r = d[i], g = d[i+1], b = d[i+2];
+    let lum = 0.299 * r + 0.587 * g + 0.114 * b;
+    d[i] = Math.min(255, Math.max(0, lum + (r - lum) * sat));
+    d[i+1] = Math.min(255, Math.max(0, lum + (g - lum) * sat));
+    d[i+2] = Math.min(255, Math.max(0, lum + (b - lum) * sat));
+  }
 }

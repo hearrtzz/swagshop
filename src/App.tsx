@@ -9,6 +9,7 @@ import {
 import { MacMenuBar } from './components/MacMenuBar';
 import { CanvasWorkspace } from './components/CanvasWorkspace';
 import { EffectsPanel } from './components/EffectsPanel';
+import { LayersPanel } from './components/LayersPanel';
 import { NewCanvasModal } from './components/NewCanvasModal';
 import { ExportModal } from './components/ExportModal';
 import { renderProcessedImageWebGL } from './utils/webglProcessing';
@@ -461,6 +462,17 @@ export default function App() {
 
       {/* Main Studio Viewport */}
       <main className="relative flex-1 w-full flex flex-col md:flex-row overflow-hidden">
+        {/* Sidebar Layers Panel (Left) */}
+        {isEffectsPanelOpen && (
+          <div className="shrink-0 border-b md:border-b-0 md:border-r border-[#3c3c3c] bg-[#252525] transition-all flex h-[35vh] md:h-full z-30">
+            <LayersPanel
+              state={effectsState}
+              onChange={handleEffectsChange}
+              isOpen={isEffectsPanelOpen}
+              onReset={handleResetEffects}
+            />
+          </div>
+        )}
         <div className="relative flex-1 h-full overflow-hidden">
           <CanvasWorkspace
             canvasConfig={canvasConfig}
