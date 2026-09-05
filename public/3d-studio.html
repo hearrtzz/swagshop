@@ -126,6 +126,12 @@
       height: 12px;
       border-radius: 50%;
       border: 1px solid rgba(0, 0, 0, 0.15);
+      cursor: pointer;
+    }
+
+    #ui-panel.minimized .mac-segmented,
+    #ui-panel.minimized .mac-content {
+      display: none !important;
     }
 
     .traffic-btn.close { background: #ff5f57; border-color: #e0443e; }
@@ -369,6 +375,33 @@
       background: #006ee6 !important;
     }
 
+    #btn-export-gif {
+      background: #a855f7 !important;
+      border-color: #a855f7 !important;
+    }
+
+    #btn-export-gif:hover {
+      background: #9333ea !important;
+    }
+
+    #btn-export-3d-model {
+      background: #3b82f6 !important;
+      border-color: #3b82f6 !important;
+    }
+    
+    #btn-export-3d-model:hover {
+      background: #2563eb !important;
+    }
+
+    #btn-record-video {
+      background: rgba(255, 255, 255, 0.1) !important;
+      border-color: rgba(255, 255, 255, 0.2) !important;
+      color: #fff;
+    }
+
+    #btn-record-video:hover {
+      background: rgba(255, 255, 255, 0.2) !important;
+    }
   </style>
 
   <svg style="position: absolute; width: 0; height: 0; overflow: hidden;" aria-hidden="true">
@@ -383,13 +416,83 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/SVGLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/GLTFExporter.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/OBJExporter.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
 </head>
 <body>
+  <!-- GIF Export Modal -->
+  <div id="gif-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center; backdrop-filter: blur(4px);">
+    <div style="background: #1e1e24; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 24px; width: 360px; color: #fff; box-shadow: 0 8px 32px rgba(0,0,0,0.5);">
+      <h3 style="margin-top: 0; margin-bottom: 16px; font-size: 18px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px;">Exportar GIF</h3>
+      
+      <div style="margin-bottom: 16px;">
+        <label style="display: block; font-size: 12px; color: rgba(255,255,255,0.6); margin-bottom: 6px;">Nome do Arquivo</label>
+        <input type="text" id="gif-filename" value="animacao_loop" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 8px 12px; border-radius: 6px; box-sizing: border-box;">
+      </div>
+
+      <div style="margin-bottom: 16px;">
+        <label style="display: block; font-size: 12px; color: rgba(255,255,255,0.6); margin-bottom: 6px;">FPS (Quadros por segundo)</label>
+        <select id="gif-fps" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 8px 12px; border-radius: 6px; box-sizing: border-box;">
+          <option value="15">15 FPS (Leve)</option>
+          <option value="30" selected>30 FPS (Fluido)</option>
+          <option value="60">60 FPS (Ultra Fluido - Demorado)</option>
+        </select>
+      </div>
+
+      <div style="margin-bottom: 24px;">
+        <label style="display: block; font-size: 12px; color: rgba(255,255,255,0.6); margin-bottom: 6px;">Resolução do GIF</label>
+        <select id="gif-quality" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 8px 12px; border-radius: 6px; box-sizing: border-box;">
+          <option value="high">Resolução Alta (Mais nítido, arquivo maior)</option>
+          <option value="medium" selected>Resolução Média (Equilíbrio ideal)</option>
+          <option value="low">Resolução Baixa (Mais rápido, arquivo leve)</option>
+        </select>
+      </div>
+
+      <div style="display: flex; gap: 12px; justify-content: flex-end;">
+        <button id="gif-cancel" style="background: transparent; border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 8px 16px; border-radius: 6px; cursor: pointer;">Cancelar</button>
+        <button id="gif-confirm" style="background: #a855f7; border: 1px solid #a855f7; color: #fff; padding: 8px 16px; border-radius: 6px; cursor: pointer;">Exportar</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- Model Export Modal -->
+  <div id="model-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center; backdrop-filter: blur(4px);">
+    <div style="background: #1e1e24; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 24px; width: 360px; color: #fff; box-shadow: 0 8px 32px rgba(0,0,0,0.5);">
+      <h3 style="margin-top: 0; margin-bottom: 16px; font-size: 18px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px;">Exportar Modelo 3D</h3>
+      
+      <div style="margin-bottom: 16px;">
+        <label style="display: block; font-size: 12px; color: rgba(255,255,255,0.6); margin-bottom: 6px;">Nome do Arquivo</label>
+        <input type="text" id="model-filename" value="modelo_3d" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 8px 12px; border-radius: 6px; box-sizing: border-box;">
+      </div>
+
+      <div style="margin-bottom: 24px;">
+        <label style="display: block; font-size: 12px; color: rgba(255,255,255,0.6); margin-bottom: 6px;">Formato do Arquivo</label>
+        <select id="model-format" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 8px 12px; border-radius: 6px; box-sizing: border-box;">
+          <option value="gltf">GLTF (Formato Web Padrão - JSON)</option>
+          <option value="glb" selected>GLB (Binário - Arquivo Único)</option>
+          <option value="obj">OBJ (Formato Clássico Universal)</option>
+        </select>
+      </div>
+
+      <div style="display: flex; gap: 12px; justify-content: flex-end;">
+        <button id="model-cancel" style="background: transparent; border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 8px 16px; border-radius: 6px; cursor: pointer;">Cancelar</button>
+        <button id="model-confirm" style="background: #3b82f6; border: 1px solid #3b82f6; color: #fff; padding: 8px 16px; border-radius: 6px; cursor: pointer;">Baixar Modelo</button>
+      </div>
+    </div>
+  </div>
+
+
+
 
   <!-- Global Actions (Return & Export) -->
   <div id="global-actions">
     <button id="btn-return" onclick="window.location.href='./index.html'">← Retornar</button>
     <button id="btn-global-export">⬇ Exportar Imagem</button>
+    <button id="btn-export-gif">🪄 Exportar GIF Loop</button>
+    <button id="btn-export-3d-model">🧊 Exportar 3D</button>
+    <button id="btn-record-video">🔴 Gravar MP4</button>
   </div>
 
   <!-- Viewport 3D -->
@@ -405,14 +508,14 @@
     <canvas id="photo-canvas"></canvas>
   </div>
   <!-- Janela macOS -->
+  
+  <button id="restore-btn" style="display: none; position: absolute; top: 32px; right: 32px; z-index: 100; background: rgba(24, 24, 27, 0.65); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 12px 16px; color: #fff; cursor: pointer; box-shadow: 0 8px 32px rgba(0,0,0,0.4); align-items: center; justify-content: center; font-weight: 600; font-size: 0.85rem; transition: background 0.2s;">
+    🛠️ SWAGSHOP3D
+  </button>
   <div id="ui-panel">
     <div class="mac-titlebar" id="mac-titlebar">
-      <div class="mac-traffic-lights">
-        <span class="traffic-btn close"></span>
-        <span class="traffic-btn minimize"></span>
-        <span class="traffic-btn maximize"></span>
-      </div>
-      <span class="mac-title">Logo Studio</span>
+      <button class="hide-btn" style="background: rgba(255,255,255,0.1); border: none; color: #fff; border-radius: 6px; font-size: 0.7rem; padding: 4px 10px; cursor: pointer; font-weight: 500; transition: background 0.2s;">Hidden</button>
+      <span class="mac-title" style="margin-right: 0; flex: 1; text-align: right;">SWAGSHOP3D</span>
     </div>
 
     <div class="mac-segmented">
@@ -684,6 +787,10 @@
         </div>
 
         <div class="control-group row">
+          <label for="bg-color">Cor do Fundo</label>
+          <input type="color" id="bg-color" value="#0b0c0e" />
+        </div>
+        <div class="control-group row">
           <label for="color">Cor Base</label>
           <input type="color" id="color" value="#ffffff" />
         </div>
@@ -799,6 +906,7 @@
   <script>
     const state = {
       mode: '3d', // '3d', '2d' ou 'photo'
+      sceneBg: '#0b0c0e',
 
       // 3D
       depth: 14,
@@ -1074,12 +1182,16 @@
         }
 
         void main() {
-          if (uFilter == 1) gl_FragColor = renderHalftone();
-          else if (uFilter == 2) gl_FragColor = renderAscii();
-          else if (uFilter == 3) gl_FragColor = renderChromatic();
-          else if (uFilter == 4) gl_FragColor = renderPixel();
-          else if (uFilter == 5) gl_FragColor = renderCelShading();
-          else gl_FragColor = texture2D(tDiffuse, vUv);
+          vec4 orig = texture2D(tDiffuse, vUv);
+          vec4 effectColor;
+          if (uFilter == 1) effectColor = renderHalftone();
+          else if (uFilter == 2) effectColor = renderAscii();
+          else if (uFilter == 3) effectColor = renderChromatic();
+          else if (uFilter == 4) effectColor = renderPixel();
+          else if (uFilter == 5) effectColor = renderCelShading();
+          else effectColor = orig;
+          
+          gl_FragColor = vec4(effectColor.rgb, orig.a);
         }
       `
     };
@@ -1089,12 +1201,12 @@
         const container = document.getElementById('canvas-container');
 
         scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x0b0c0e);
+        scene.background = null; document.getElementById("canvas-container").style.backgroundColor = state.sceneBg;
 
         camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 2000);
         camera.position.set(0, 0, 150);
 
-        renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+        renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: 'high-performance' });
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -1177,7 +1289,7 @@
       let startLeft = 0, startTop = 0;
 
       titlebar.addEventListener('pointerdown', (e) => {
-        if (e.target.closest('.mac-traffic-lights')) return;
+        if (e.target.closest('.hide-btn')) return;
 
         isDragging = true;
         startX = e.clientX;
@@ -1284,8 +1396,8 @@
     function generateChalkPath() {
       if (!state.c2dLoops || state.c2dLoops.length === 0) return;
 
-      const w = state.c2dWidth;
-      const h = state.c2dHeight;
+      const w = Math.round(state.c2dWidth);
+      const h = Math.round(state.c2dHeight);
 
       let bMinX = Infinity, bMinY = Infinity, bMaxX = -Infinity, bMaxY = -Infinity;
       state.c2dLoops.forEach(lp => {
@@ -1537,7 +1649,7 @@
         const area = getSignedArea(lp);
         if (Math.abs(area) < 0.2) return;
         const b = getBounds(lp);
-        if (area < 0) outers.push({ pts: lp, holes: [], bounds: b });
+        if (area > 0) outers.push({ pts: lp, holes: [], bounds: b });
         else holes.push({ pts: lp, bounds: b });
       });
 
@@ -1651,8 +1763,8 @@
     function updateSilhouetteCanvas() {
       if (!cachedImage || !state.c2dWidth || !state.c2dHeight) return;
 
-      const w = state.c2dWidth;
-      const h = state.c2dHeight;
+      const w = Math.round(state.c2dWidth);
+      const h = Math.round(state.c2dHeight);
 
       const sCanvas = document.createElement('canvas');
       sCanvas.width = w;
@@ -1708,8 +1820,8 @@
     function renderCartoonFrame(now) {
       if (!cachedImage || !state.c2dLoops || state.c2dLoops.length === 0) return;
 
-      const w = state.c2dWidth;
-      const h = state.c2dHeight;
+      const w = Math.round(state.c2dWidth);
+      const h = Math.round(state.c2dHeight);
 
       if (cartoonCanvas.width !== w || cartoonCanvas.height !== h) {
         cartoonCanvas.width = w;
@@ -2025,8 +2137,8 @@
     function renderPhotoRetro(highRes = false) {
       if (!cachedImage) return;
 
-      const origW = cachedImage.naturalWidth || cachedImage.width || 800;
-      const origH = cachedImage.naturalHeight || cachedImage.height || 600;
+      const origW = Math.round(cachedImage.naturalWidth || cachedImage.width || 800);
+      const origH = Math.round(cachedImage.naturalHeight || cachedImage.height || 600);
 
       const maxDim = highRes ? 3840 : 1200;
       let w = origW;
@@ -2470,8 +2582,8 @@
 
         const canvas = document.createElement('canvas');
         const maxDim = state.resolution;
-        let w = img.naturalWidth || img.width || 600;
-        let h = img.naturalHeight || img.height || 600;
+        let w = Math.round(img.naturalWidth || img.width || 600);
+        let h = Math.round(img.naturalHeight || img.height || 600);
 
         if (w > maxDim || h > maxDim) {
           if (w > h) { h = Math.round((h * maxDim) / w); w = maxDim; }
@@ -2634,6 +2746,20 @@
 
     // 5. Configuração de Eventos
     function setupEvents() {
+      const minBtn = document.querySelector('.hide-btn');
+      const restoreBtn = document.getElementById('restore-btn');
+      const panel = document.getElementById('ui-panel');
+      if (minBtn && restoreBtn && panel) {
+        minBtn.addEventListener('click', () => {
+          panel.style.display = 'none';
+          restoreBtn.style.display = 'flex';
+        });
+        restoreBtn.addEventListener('click', () => {
+          panel.style.display = 'flex';
+          restoreBtn.style.display = 'none';
+        });
+      }
+
       window.addEventListener('resize', () => {
         const w = window.innerWidth, h = window.innerHeight;
         camera.aspect = w / h;
@@ -2674,6 +2800,11 @@
         canvas3d.style.display = target === '3d' ? 'block' : 'none';
         cartoonContainer.style.display = target === '2d' ? 'flex' : 'none';
         photoContainer.style.display = target === 'photo' ? 'flex' : 'none';
+
+        const btnExport3d = document.getElementById('btn-export-3d-model');
+        if (btnExport3d) {
+          btnExport3d.style.display = target === '3d' ? 'inline-block' : 'none';
+        }
 
         if (target === '2d') state.c2dStartTime = performance.now();
         if (target === 'photo') renderPhotoRetro();
@@ -2954,6 +3085,13 @@
         applyPreset(e.target.value);
       });
 
+      document.getElementById('bg-color').addEventListener('input', e => {
+        state.sceneBg = e.target.value;
+        if (scene) {
+           scene.background = null; document.getElementById("canvas-container").style.backgroundColor = state.sceneBg;
+        }
+      });
+
       document.getElementById('color').addEventListener('input', e => {
         state.color = e.target.value;
         state.preset = 'custom';
@@ -3048,35 +3186,392 @@
           link.click();
           renderPhotoRetro(false);
         } else if (state.mode === '2d') {
-          // Simply export whatever is on the cartoon canvas right now
           const link = document.createElement('a');
           link.download = 'cartoon-export.png';
-          link.href = cartoonCanvas.toDataURL('image/png');
+          
+          const tmpCanvas = document.createElement('canvas');
+          tmpCanvas.width = cartoonCanvas.width;
+          tmpCanvas.height = cartoonCanvas.height;
+          const ctx = tmpCanvas.getContext('2d');
+          ctx.fillStyle = state.c2dPaper;
+          ctx.fillRect(0, 0, tmpCanvas.width, tmpCanvas.height);
+          
+          ctx.save();
+          if (state.c2dJitter) {
+            const jx = (Math.random() - 0.5) * 1.5;
+            const jy = (Math.random() - 0.5) * 1.5;
+            const jrot = (Math.random() - 0.5) * 0.35 * Math.PI / 180;
+            ctx.translate(tmpCanvas.width/2 + jx, tmpCanvas.height/2 + jy);
+            ctx.rotate(jrot);
+            ctx.translate(-tmpCanvas.width/2, -tmpCanvas.height/2);
+            ctx.filter = 'url(#cartoon-boil)';
+          }
+          
+          ctx.drawImage(cartoonCanvas, 0, 0);
+          ctx.restore();
+          
+          link.href = tmpCanvas.toDataURL('image/png');
           link.click();
         } else if (state.mode === '3d') {
-          // Temporarily set a higher resolution for the export if desired, or just export current view
-          // Doing current view is easiest:
-          renderer.render(scene, camera);
-          
-          if (state.filter !== 'none') {
+          if (state.filter === 'none') {
+             renderer.setRenderTarget(null);
+             renderer.clear();
+             renderer.render(scene, camera);
+          } else {
              renderer.setRenderTarget(renderTarget);
              renderer.clear();
              renderer.render(scene, camera);
              
              renderer.setRenderTarget(null);
+             renderer.clear();
              postMaterial.uniforms.tDiffuse.value = renderTarget.texture;
              renderer.render(postScene, postCamera);
           }
           
           const link = document.createElement('a');
           link.download = '3d-studio-export.png';
-          // Need preserveDrawingBuffer=true in WebGLRenderer for this to work perfectly,
-          // but calling toDataURL right after render often works anyway.
           link.href = renderer.domElement.toDataURL('image/png');
           link.click();
         }
       });
     }
+
+    
+
+      // 3D Model Export Modal Logic
+      const btnExportModel = document.getElementById('btn-export-3d-model');
+      const modelModal = document.getElementById('model-modal');
+      const modelCancel = document.getElementById('model-cancel');
+      const modelConfirm = document.getElementById('model-confirm');
+      const modelFilename = document.getElementById('model-filename');
+      const modelFormat = document.getElementById('model-format');
+
+      if (btnExportModel) {
+        btnExportModel.addEventListener('click', () => {
+          if (!modelGroup || modelGroup.children.length === 0) {
+            alert('Não há nenhum modelo 3D carregado para exportar.');
+            return;
+          }
+          modelModal.style.display = 'flex';
+        });
+      }
+
+      if (modelCancel) {
+        modelCancel.addEventListener('click', () => {
+          modelModal.style.display = 'none';
+        });
+      }
+
+      if (modelConfirm) {
+        modelConfirm.addEventListener('click', () => {
+          modelModal.style.display = 'none';
+          const format = modelFormat.value;
+          let filename = modelFilename.value.trim() || 'modelo_3d';
+
+          if (format === 'gltf' || format === 'glb') {
+            const exporter = new THREE.GLTFExporter();
+            exporter.parse(modelGroup, (result) => {
+              if (result instanceof ArrayBuffer) {
+                // GLB
+                saveArrayBuffer(result, filename + '.glb');
+              } else {
+                // GLTF
+                const output = JSON.stringify(result, null, 2);
+                saveString(output, filename + '.gltf');
+              }
+            }, { binary: format === 'glb' });
+          } else if (format === 'obj') {
+            const exporter = new THREE.OBJExporter();
+            const result = exporter.parse(modelGroup);
+            saveString(result, filename + '.obj');
+          }
+        });
+      }
+
+      function saveString(text, filename) {
+        const blob = new Blob([text], { type: 'text/plain' });
+        saveBlob(blob, filename);
+      }
+
+      function saveArrayBuffer(buffer, filename) {
+        const blob = new Blob([buffer], { type: 'application/octet-stream' });
+        saveBlob(blob, filename);
+      }
+
+      function saveBlob(blob, filename) {
+        const link = document.createElement('a');
+        link.style.display = 'none';
+        link.href = URL.createObjectURL(blob);
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+
+      // MP4 Recording
+      let mediaRecorder;
+      let recordedChunks = [];
+      let isRecording = false;
+      let recordCanvas = document.createElement('canvas');
+      let recordCtx = recordCanvas.getContext('2d');
+
+      document.getElementById('btn-record-video').addEventListener('click', () => {
+        if (!isRecording) {
+          try {
+            let sourceCanvas;
+            if (state.mode === '3d') {
+                sourceCanvas = renderer.domElement;
+            } else if (state.mode === '2d') {
+                sourceCanvas = cartoonCanvas;
+            } else if (state.mode === 'photo') {
+                sourceCanvas = photoCanvas;
+            }
+            if (!sourceCanvas) return;
+            
+            recordCanvas.width = sourceCanvas.width;
+            recordCanvas.height = sourceCanvas.height;
+
+            const stream = recordCanvas.captureStream(30);
+            let mimeType = 'video/mp4';
+            if (!MediaRecorder.isTypeSupported(mimeType)) {
+              mimeType = 'video/webm;codecs=vp9';
+              if (!MediaRecorder.isTypeSupported(mimeType)) {
+                mimeType = 'video/webm';
+              }
+            }
+            mediaRecorder = new MediaRecorder(stream, { mimeType });
+            
+            recordedChunks = [];
+            mediaRecorder.ondataavailable = e => {
+              if (e.data.size > 0) {
+                recordedChunks.push(e.data);
+              }
+            };
+            
+            mediaRecorder.onstop = () => {
+              const blob = new Blob(recordedChunks, { type: mimeType });
+              const url = URL.createObjectURL(blob);
+              const link = document.createElement('a');
+              link.href = url;
+              const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
+              link.download = `animacao_3d.${ext}`;
+              link.click();
+              URL.revokeObjectURL(url);
+            };
+            
+            mediaRecorder.start();
+            isRecording = true;
+            document.getElementById('btn-record-video').innerHTML = '⏹ Parar Gravação';
+            document.getElementById('btn-record-video').style.background = '#e63946';
+            document.getElementById('btn-record-video').style.borderColor = '#e63946';
+          } catch (e) {
+            console.error(e);
+            alert('Gravação de tela não suportada no seu navegador.');
+          }
+        } else {
+          mediaRecorder.stop();
+          isRecording = false;
+          document.getElementById('btn-record-video').innerHTML = '🔴 Gravar Tela (MP4/WEBM)';
+          document.getElementById('btn-record-video').style.background = '';
+          document.getElementById('btn-record-video').style.borderColor = '';
+        }
+      });
+
+      // GIF Export
+      document.addEventListener('DOMContentLoaded', () => {
+
+  
+        const cancelEl = document.getElementById('gif-cancel');
+        if (cancelEl) {
+            cancelEl.addEventListener('click', () => {
+              document.getElementById('gif-modal').style.display = 'none';
+            });
+        }
+  
+        const btnExportGif = document.getElementById('btn-export-gif');
+        if (btnExportGif) {
+            btnExportGif.addEventListener('click', () => {
+              if (!cachedImage) return;
+              if (state.mode !== '3d' && state.mode !== '2d') {
+                  alert('A exportação de GIF funciona apenas nos modos 3D e Cartoon (2D).');
+                  return;
+              }
+              document.getElementById('gif-modal').style.display = 'flex';
+            });
+        }
+  
+        const gifConfirm = document.getElementById('gif-confirm');
+        if (gifConfirm) {
+            gifConfirm.addEventListener('click', async () => {
+        document.getElementById('gif-modal').style.display = 'none';
+        
+        const filename = document.getElementById('gif-filename').value || 'animacao_loop';
+        const fps = parseInt(document.getElementById('gif-fps').value, 10);
+        const qualitySetting = document.getElementById('gif-quality').value;
+        let quality = 10;
+        let maxDim = 600;
+        if (qualitySetting === 'high') {
+           quality = 5;
+           maxDim = 800;
+        } else if (qualitySetting === 'medium') {
+           quality = 10;
+           maxDim = 500;
+        } else if (qualitySetting === 'low') {
+           quality = 15;
+           maxDim = 320;
+        }
+
+        const btn = document.getElementById('btn-export-gif');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '⏳ Gerando GIF (Aguarde)...';
+        btn.disabled = true;
+
+        let prevBg = scene.background;
+
+        try {
+          const workerRes = await fetch('https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.worker.js');
+          const workerText = await workerRes.text();
+          const workerBlob = new Blob([workerText], { type: 'application/javascript' });
+          const workerUrl = URL.createObjectURL(workerBlob);
+
+
+
+          const maxGifDim = maxDim;
+          let sourceCanvas = state.mode === '2d' ? cartoonCanvas : renderer.domElement;
+          let gifW = sourceCanvas.width;
+          let gifH = sourceCanvas.height;
+          
+          if (gifW > maxGifDim || gifH > maxGifDim) {
+             const ratio = Math.min(maxGifDim / gifW, maxGifDim / gifH);
+             gifW = Math.round(gifW * ratio);
+             gifH = Math.round(gifH * ratio);
+          } else {
+             gifW = Math.round(gifW);
+             gifH = Math.round(gifH);
+          }
+
+          const gif = new GIF({
+            workers: 4,
+            quality: quality,
+            width: gifW,
+            height: gifH,
+            workerScript: workerUrl,
+            transparent: 0x000000
+          });
+
+          gif.on('progress', p => {
+            btn.innerHTML = '⏳ Renderizando: ' + Math.round(p * 100) + '%';
+          });
+
+          // background is already transparent
+
+                    // background is already transparent
+
+          const totalFrames = state.mode === '3d' ? 60 : Math.floor(state.c2dDuration * fps);
+          const rotationStep = state.mode === '3d' ? ((Math.PI * 2) / totalFrames) : 0;
+            
+          const stepTime = 1000 / fps;
+
+          const prevAuto = state.rotate;
+          state.rotate = false;
+          
+          const prevC2dStartTime = state.c2dStartTime;
+            
+          const tmpCanvas = document.createElement('canvas');
+          tmpCanvas.width = gifW;
+          tmpCanvas.height = gifH;
+          const tmpCtx = tmpCanvas.getContext('2d');
+
+          let currentRotation = 0;
+          if (state.mode === '3d') {
+             currentRotation = modelGroup.rotation.y;
+          }
+            
+          for (let i = 0; i < totalFrames; i++) {
+            if (state.mode === '2d') {
+                await new Promise(r => requestAnimationFrame(r));
+            }
+            if (state.mode === '3d') {
+                modelGroup.rotation.y = currentRotation + (i * rotationStep);
+                  
+                if (state.filter === 'none') {
+                    renderer.setRenderTarget(null);
+                    renderer.render(scene, camera);
+                } else {
+                    renderer.setRenderTarget(renderTarget);
+                    renderer.clear();
+                    renderer.render(scene, camera);
+              
+                    renderer.setRenderTarget(null);
+                    postMaterial.uniforms.tDiffuse.value = renderTarget.texture;
+                    renderer.render(postScene, postCamera);
+                }
+            } else if (state.mode === '2d') {
+                state.c2dStartTime = performance.now(); // reset
+                // Since renderCartoonFrame uses performance.now() to check elapsed time,
+                // we have to mock now by passing a time that advances by stepTime
+                renderCartoonFrame(state.c2dStartTime + (i * stepTime));
+            }
+              
+            tmpCtx.clearRect(0, 0, gifW, gifH);
+            
+            if (state.mode === '2d') {
+                tmpCtx.fillStyle = state.c2dPaper;
+                tmpCtx.fillRect(0, 0, gifW, gifH);
+            }
+            
+            tmpCtx.save();
+            
+            if (state.mode === '2d' && state.c2dJitter) {
+                const jx = state.c2dCurrentJx || 0;
+                const jy = state.c2dCurrentJy || 0;
+                const jrot = (state.c2dCurrentJrot || 0) * Math.PI / 180;
+                
+                tmpCtx.translate(gifW/2 + jx, gifH/2 + jy);
+                tmpCtx.rotate(jrot);
+                tmpCtx.translate(-gifW/2, -gifH/2);
+                
+                // SVG filter for boil effect
+                tmpCtx.filter = 'url(#cartoon-boil)';
+            }
+            
+            tmpCtx.drawImage(sourceCanvas, 0, 0, gifW, gifH);
+            tmpCtx.restore();
+              
+            gif.addFrame(tmpCtx, { delay: stepTime, copy: true });
+          }
+
+          if (state.mode === '3d') {
+              modelGroup.rotation.y = currentRotation;
+          }
+          state.rotate = prevAuto;
+          if (state.mode === '2d') {
+              state.c2dStartTime = prevC2dStartTime;
+          }
+
+          gif.on('finished', function(blob) {
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename + '.gif';
+            link.click();
+            URL.revokeObjectURL(url);
+            
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+          });
+
+          gif.render();
+
+        } catch (e) {
+          console.error(e);
+          alert('Erro ao gerar GIF.');
+          btn.innerHTML = originalText;
+          btn.disabled = false;
+        }
+            });
+      }
+      });
 
     const clock = new THREE.Clock();
     let lastCartoonTime = 0;
@@ -3095,6 +3590,7 @@
         renderCartoonFrame(now);
 
         const interval = 1000 / state.c2dFps;
+        let didUpdate = false;
         if (now - lastCartoonTime >= interval) {
           lastCartoonTime = now;
           boilNoise.setAttribute('seed', Math.floor(Math.random() * 500) + 1);
@@ -3103,8 +3599,31 @@
             const jx = (Math.random() - 0.5) * 1.5;
             const jy = (Math.random() - 0.5) * 1.5;
             const jrot = (Math.random() - 0.5) * 0.35;
+            state.c2dCurrentJx = jx;
+            state.c2dCurrentJy = jy;
+            state.c2dCurrentJrot = jrot;
             cartoonCanvas.style.transform = `translate(${jx}px, ${jy}px) rotate(${jrot}deg)`;
           }
+          didUpdate = true;
+        }
+        
+        if (isRecording && state.mode === '2d' && didUpdate) {
+          recordCanvas.width = cartoonCanvas.width;
+          recordCanvas.height = cartoonCanvas.height;
+          recordCtx.fillStyle = state.c2dPaper;
+          recordCtx.fillRect(0, 0, recordCanvas.width, recordCanvas.height);
+          recordCtx.save();
+          if (state.c2dJitter) {
+            const jx = state.c2dCurrentJx || 0;
+            const jy = state.c2dCurrentJy || 0;
+            const jrot = (state.c2dCurrentJrot || 0) * Math.PI / 180;
+            recordCtx.translate(recordCanvas.width/2 + jx, recordCanvas.height/2 + jy);
+            recordCtx.rotate(jrot);
+            recordCtx.translate(-recordCanvas.width/2, -recordCanvas.height/2);
+            recordCtx.filter = 'url(#cartoon-boil)';
+          }
+          recordCtx.drawImage(cartoonCanvas, 0, 0);
+          recordCtx.restore();
         }
         return;
       }
@@ -3139,13 +3658,28 @@
         postMaterial.uniforms.tDiffuse.value = renderTarget.texture;
         renderer.render(postScene, postCamera);
       }
+      
+      // Update proxy canvas for video recording
+      if (isRecording) {
+         if (state.mode === '3d') {
+             recordCanvas.width = renderer.domElement.width;
+             recordCanvas.height = renderer.domElement.height;
+             recordCtx.clearRect(0, 0, recordCanvas.width, recordCanvas.height);
+             recordCtx.drawImage(renderer.domElement, 0, 0);
+         } else if (state.mode === 'photo') {
+             recordCanvas.width = photoCanvas.width;
+             recordCanvas.height = photoCanvas.height;
+             recordCtx.clearRect(0, 0, recordCanvas.width, recordCanvas.height);
+             recordCtx.drawImage(photoCanvas, 0, 0);
+         }
+      }
     }
 
     // Must enable preserveDrawingBuffer for export to work easily
     const oldInit = init;
     init = function() {
       const container = document.getElementById('canvas-container');
-      renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: true });
+      renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: true });
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
       renderer.setSize(window.innerWidth, window.innerHeight);
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -3169,8 +3703,8 @@
 
     // Fix the original init to not create a new renderer if we already have one
     const originalInitStr = oldInit.toString().replace(
-      "renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });",
-      "if (!renderer) { renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: true }); }"
+      "renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: 'high-performance' });",
+      "if (!renderer) { renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: true }); }"
     );
     
     // We'll just patch the function in a simpler way:
@@ -3180,12 +3714,12 @@
         const container = document.getElementById('canvas-container');
 
         scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x0b0c0e);
+        scene.background = null; document.getElementById("canvas-container").style.backgroundColor = state.sceneBg;
 
         camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 2000);
         camera.position.set(0, 0, 150);
 
-        renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: true });
+        renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: true });
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -3261,5 +3795,6 @@
       }
     };
   </script>
+
 </body>
 </html>

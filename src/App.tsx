@@ -452,6 +452,7 @@ export default function App() {
         onFitImage={handleFitImage}
         onCopyCanvas={handleCopyCanvas}
         onLoadDemo={loadDemoGraphic}
+        hasImage={!!image}
         effectsState={effectsState}
         setEffectsState={handleEffectsChange}
         isEffectsPanelOpen={isEffectsPanelOpen}

@@ -321,13 +321,7 @@ export const CanvasWorkspace: React.FC<CanvasWorkspaceProps> = ({
               <Upload className="w-4 h-4" />
               <span>Escolher Foto...</span>
             </label>
-            <button
-              onClick={onLoadDemo}
-              className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-[#2a2a2a] hover:bg-[#333] border border-[#3c3c3c] text-[#e0e0e0] text-xs font-medium flex items-center justify-center gap-2 transition-all cursor-pointer"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              <span>Exemplo Demo</span>
-            </button>
+            
           </div>
           <span className="text-[11px] text-[#666] mt-4 font-mono">PNG, JPG, WEBP, SVG suportados</span>
         </div>

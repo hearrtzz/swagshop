@@ -44,6 +44,7 @@ interface MacMenuBarProps {
   setEffectsState: React.Dispatch<React.SetStateAction<PhotoEffectsState>>;
   isEffectsPanelOpen: boolean;
   setIsEffectsPanelOpen: (open: boolean | ((prev: boolean) => boolean)) => void;
+  hasImage: boolean;
 }
 
 export const MacMenuBar: React.FC<MacMenuBarProps> = ({
@@ -67,6 +68,7 @@ export const MacMenuBar: React.FC<MacMenuBarProps> = ({
   setEffectsState,
   isEffectsPanelOpen,
   setIsEffectsPanelOpen,
+  hasImage,
 }) => {
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [copiedNotification, setCopiedNotification] = useState(false);
@@ -100,7 +102,10 @@ export const MacMenuBar: React.FC<MacMenuBarProps> = ({
       <div className="flex items-center gap-4 shrink-0">
         {/* Swagshop Brand */}
         <div className="flex items-center gap-2 cursor-default text-white shrink-0">
-          <Layers size={15} />
+          <svg width="15" height="15" viewBox="0 0 100 100" fill="none" stroke="currentColor" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round">
+            <polygon points="50,5 20,95 95,40 5,40 80,95" />
+            <circle cx="50" cy="53" r="48" />
+          </svg>
           <span className="font-semibold tracking-wide">swagshop</span>
         </div>
 
@@ -124,12 +129,14 @@ export const MacMenuBar: React.FC<MacMenuBarProps> = ({
                   <span className="flex items-center gap-2"><FolderOpen className="w-3.5 h-3.5" /> Abrir Imagem...</span>
                   <span className="text-[10px] text-[#888]">⌘O</span>
                 </button>
+                {hasImage && (
                 <button
                   onClick={() => { onCloseImage(); setActiveMenu(null); }}
                   className="w-full text-left px-3 py-1.5 hover:bg-red-500 hover:text-white flex items-center justify-between text-red-400 font-medium"
                 >
                   <span className="flex items-center gap-2"><X className="w-3.5 h-3.5" /> Fechar Imagem...</span>
                 </button>
+                )}
                 <div className="my-1 border-t border-[#3c3c3c]" />
                 <button
                   onClick={() => { onOpenExportModal(); setActiveMenu(null); }}
@@ -407,6 +414,7 @@ export const MacMenuBar: React.FC<MacMenuBarProps> = ({
         </button>
 
         {/* Close Button */}
+        {hasImage && (
         <button
           onClick={onCloseImage}
           title="Fechar imagem atual"
@@ -415,6 +423,7 @@ export const MacMenuBar: React.FC<MacMenuBarProps> = ({
           <X className="w-3.5 h-3.5" />
           <span>Fechar</span>
         </button>
+        )}
       </div>
     </header>
   );
