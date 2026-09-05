@@ -1052,6 +1052,19 @@ export const EffectsPanel: React.FC<EffectsPanelProps> = ({
                     />
                   </div>
 
+                  {/* Tamanho dos Quadrados */}
+                  <div>
+                    <div className="flex justify-between text-[#e0e0e0] text-[10px] mb-1">
+                      <span>Tamanho dos Quadrados</span>
+                      <span className="font-mono text-[#007aff]">{state.cyberTraceBoxSize ?? 40}%</span>
+                    </div>
+                    <input
+                      type="range" min="10" max="150" value={state.cyberTraceBoxSize ?? 40}
+                      onChange={e => updateState('cyberTraceBoxSize', parseInt(e.target.value))}
+                      className="w-full h-1"
+                    />
+                  </div>
+
                   {/* Mode */}
                   <div className="flex gap-1">
                     {['straight', 'orthogonal', 'curve'].map(mode => (

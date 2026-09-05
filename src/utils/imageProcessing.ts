@@ -1131,6 +1131,7 @@ export function applyCyberTraceLayer(
   // Increase grid size mapping to space them out more
   const gridSize = Math.max(30, 200 - state.cyberTraceDensity * 1.5);
   const threshold = state.cyberTraceThreshold;
+  const boxScale = (state.cyberTraceBoxSize ?? 40) / 40;
   
   const nodes: {x: number, y: number, gx: number, gy: number, size: number}[] = [];
 
@@ -1163,7 +1164,7 @@ export function applyCyberTraceLayer(
       // Randomly drop some valid points to make it more sparse and chaotic
       if (luma < threshold && Math.random() > 0.3) {
         const sizeMult = 0.5 + ((threshold - luma) / threshold) * 0.8;
-        nodes.push({ x: px, y: py, gx, gy, size: gridSize * 0.15 * sizeMult });
+        nodes.push({ x: px, y: py, gx, gy, size: gridSize * 0.15 * sizeMult * boxScale });
       }
     }
   }

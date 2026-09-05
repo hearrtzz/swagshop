@@ -154,6 +154,7 @@ export interface PhotoEffectsState {
   cyberTrace: number; // 0 to 100%
   cyberTraceDensity: number; // 0 to 100
   cyberTraceThreshold: number; // 0 to 255
+  cyberTraceBoxSize?: number; // 10 to 150% (node box size)
   cyberTraceMode: 'straight' | 'orthogonal' | 'curve';
   cyberTraceColor: string;
 
@@ -277,6 +278,7 @@ export const DEFAULT_PHOTO_EFFECTS: PhotoEffectsState = {
   cyberTrace: 0,
   cyberTraceDensity: 50,
   cyberTraceThreshold: 100,
+  cyberTraceBoxSize: 40,
   cyberTraceMode: 'orthogonal',
   cyberTraceColor: '#22c55e',
   timestamp: false,
