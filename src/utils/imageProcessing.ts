@@ -1128,32 +1128,17 @@ export function applyCyberTraceLayer(
   const data = imgData.data;
 
   const opacity = state.cyberTrace / 100;
-  // Increase grid size mapping to space them out more
-  const gridSize = Math.max(30, 200 - state.cyberTraceDensity * 1.5);
+  // Map density (0-100) to grid size (larger density = smaller grid = more nodes)
+  const gridSize = Math.max(16, 120 - state.cyberTraceDensity);
   const threshold = state.cyberTraceThreshold;
-  const boxScale = (state.cyberTraceBoxSize ?? 40) / 40;
   
-  const nodes: {x: number, y: number, gx: number, gy: number, size: number}[] = [];
+  const nodes: {x: number, y: number, size: number}[] = [];
 
-  const gxCount = Math.floor(targetW / gridSize);
-  const gyCount = Math.floor(targetH / gridSize);
-
-  // 1. Detect dark spots using grid sampling with jitter
-  for (let gy = 0; gy < gyCount; gy++) {
-    for (let gx = 0; gx < gxCount; gx++) {
-      const baseX = gx * gridSize + gridSize / 2;
-      const baseY = gy * gridSize + gridSize / 2;
-
-      // Add significant randomness to break the grid clustering
-      const jitterX = (Math.random() - 0.5) * gridSize * 1.8;
-      const jitterY = (Math.random() - 0.5) * gridSize * 1.8;
-      
-      let px = Math.floor(baseX + jitterX);
-      let py = Math.floor(baseY + jitterY);
-      
-      px = Math.max(0, Math.min(targetW - 1, px));
-      py = Math.max(0, Math.min(targetH - 1, py));
-
+  // 1. Detect dark spots using grid sampling
+  for (let y = gridSize / 2; y < targetH - gridSize/2; y += gridSize) {
+    for (let x = gridSize / 2; x < targetW - gridSize/2; x += gridSize) {
+      const px = Math.floor(x);
+      const py = Math.floor(y);
       const idx = (py * targetW + px) * 4;
       
       const r = data[idx];
@@ -1161,10 +1146,10 @@ export function applyCyberTraceLayer(
       const b = data[idx+2];
       const luma = r * 0.299 + g * 0.587 + b * 0.114;
 
-      // Randomly drop some valid points to make it more sparse and chaotic
-      if (luma < threshold && Math.random() > 0.3) {
+      if (luma < threshold) {
+        // Size proportional to darkness
         const sizeMult = 0.5 + ((threshold - luma) / threshold) * 0.8;
-        nodes.push({ x: px, y: py, gx, gy, size: gridSize * 0.15 * sizeMult * boxScale });
+        nodes.push({ x: px, y: py, size: gridSize * 0.4 * sizeMult });
       }
     }
   }
@@ -1181,19 +1166,25 @@ export function applyCyberTraceLayer(
   ctx.shadowBlur = 12 * opacity;
   ctx.globalCompositeOperation = 'screen';
 
-  // Map to grid coordinates for O(N) connections
+  // O(N) Grid-based nearest neighbor connection algorithm for massive performance gains
   const nodeGrid: Map<string, typeof nodes[0]> = new Map();
   nodes.forEach(n => {
-      nodeGrid.set(`${n.gx},${n.gy}`, n);
+      // Map to grid coordinates
+      const gx = Math.floor(n.x / gridSize);
+      const gy = Math.floor(n.y / gridSize);
+      nodeGrid.set(`${gx},${gy}`, n);
   });
 
   ctx.beginPath();
   nodes.forEach(n => {
+      const gx = Math.floor(n.x / gridSize);
+      const gy = Math.floor(n.y / gridSize);
+      
       // Look for right and down neighbors to avoid duplicate drawing
       const neighbors = [
-          nodeGrid.get(`${n.gx+1},${n.gy}`),
-          nodeGrid.get(`${n.gx},${n.gy+1}`),
-          nodeGrid.get(`${n.gx+1},${n.gy+1}`)
+          nodeGrid.get(`${gx+1},${gy}`),
+          nodeGrid.get(`${gx},${gy+1}`),
+          nodeGrid.get(`${gx+1},${gy+1}`)
       ].filter(Boolean) as typeof nodes;
 
       neighbors.forEach(n2 => {
@@ -1214,18 +1205,29 @@ export function applyCyberTraceLayer(
   ctx.stroke();
 
   // Draw node boxes & labels
-  const fontSize = Math.max(8, targetW / 140);
+  const fontSize = Math.max(8, targetW / 120);
   ctx.font = `${fontSize}px monospace`;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
 
   nodes.forEach((n, i) => {
-    // Simpler Node Box
+    // Main Box
     ctx.strokeRect(n.x - n.size/2, n.y - n.size/2, n.size, n.size);
 
-    // Occasional Text Label Box for some nodes (fewer of them)
-    if (i % 7 === 0) {
-        const titleW = fontSize * 5;
+    // Decorative lines inside the box (horizontal scanlines)
+    ctx.save();
+    ctx.globalAlpha = opacity * 0.4;
+    ctx.beginPath();
+    for(let dy = -n.size/2 + 4; dy < n.size/2 - 2; dy += 4) {
+        ctx.moveTo(n.x - n.size/2 + 2, n.y + dy);
+        ctx.lineTo(n.x + n.size/2 - 2, n.y + dy);
+    }
+    ctx.stroke();
+    ctx.restore();
+
+    // Occasional Text Label Box for some nodes
+    if (i % 3 === 0) {
+        const titleW = fontSize * 7;
         const titleH = fontSize + 4;
         
         ctx.save();
@@ -1233,8 +1235,9 @@ export function applyCyberTraceLayer(
         // Background box for text
         ctx.fillRect(n.x - n.size/2, n.y - n.size/2 - titleH - 2, titleW, titleH);
         
-        ctx.fillStyle = '#000000';
-        ctx.fillText(`N${i}`, n.x - n.size/2 + 2, n.y - n.size/2 - titleH - 1);
+        // Text inside box
+        ctx.fillStyle = '#0b0c0e'; // dark text
+        ctx.fillText(`C_${i.toString(16).toUpperCase().padStart(3, '0')}`, n.x - n.size/2 + 4, n.y - n.size/2 - titleH);
         ctx.restore();
     }
   });
