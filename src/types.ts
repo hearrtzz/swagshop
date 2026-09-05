@@ -117,7 +117,6 @@ export interface PhotoEffectsState {
   asciiMode?: 'color' | 'bw' | 'green';
   asciiText: number; // 0 to 100%
   asciiTextString: string;
-  asciiTextRandom: boolean;
   shapes: number; // 0 to 100%
   shapesMode: 'bw' | 'color' | 'overlay';
   airbrush: number; // 0 to 100%
@@ -249,8 +248,7 @@ export const DEFAULT_PHOTO_EFFECTS: PhotoEffectsState = {
   ascii: 0,
   asciiMode: 'color',
   asciiText: 0,
-  asciiTextString: 'Hello World. ',
-  asciiTextRandom: false, 
+  asciiTextString: 'Hello World. ', 
   shapes: 0,
   shapesMode: 'overlay',
   airbrush: 0,

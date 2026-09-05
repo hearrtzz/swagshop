@@ -957,15 +957,8 @@ export function applyAsciiTextLayer(pipeline: PipelineManager, state: PhotoEffec
       const g = data[idx + 1];
       const b = data[idx + 2];
       
-      let char = '';
-      if (state.asciiTextRandom) {
-        const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%&*+<>?";
-        const pseudoRandom = Math.abs(Math.sin(x * 12.9898 + y * 78.233) * 43758.5453);
-        char = charset[Math.floor(pseudoRandom * charset.length) % charset.length];
-      } else {
-        char = textString[charIndex];
-        charIndex = (charIndex + 1) % textString.length;
-      }
+      const char = textString[charIndex];
+      charIndex = (charIndex + 1) % textString.length;
       
       ctx.fillStyle = `rgb(${r},${g},${b})`;
       ctx.fillText(char, x * stepX + stepX/2, y * stepY + stepY/2);

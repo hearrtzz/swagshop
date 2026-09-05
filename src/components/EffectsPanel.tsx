@@ -1145,38 +1145,14 @@ export const EffectsPanel: React.FC<EffectsPanelProps> = ({
               />
 
               {state.asciiText > 0 && (
-                <div className="mt-2 space-y-2">
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => updateState('asciiTextRandom', false)}
-                      className={`flex-1 py-1.5 rounded-lg border text-[10px] font-medium transition-all ${
-                        !state.asciiTextRandom
-                          ? 'bg-[#007aff] border-[#007aff] text-white'
-                          : 'bg-[#1e1e1e] border-[#3c3c3c] text-[#888] hover:text-white'
-                      }`}
-                    >
-                      Texto Fixo
-                    </button>
-                    <button
-                      onClick={() => updateState('asciiTextRandom', true)}
-                      className={`flex-1 py-1.5 rounded-lg border text-[10px] font-medium transition-all ${
-                        state.asciiTextRandom
-                          ? 'bg-[#007aff] border-[#007aff] text-white'
-                          : 'bg-[#1e1e1e] border-[#3c3c3c] text-[#888] hover:text-white'
-                      }`}
-                    >
-                      Caos Aleatório
-                    </button>
-                  </div>
-                  {!state.asciiTextRandom && (
-                    <input
-                      type="text"
-                      value={state.asciiTextString || 'Hello World. '}
-                      onChange={e => updateState('asciiTextString', e.target.value)}
-                      placeholder="Texto para renderizar a imagem..."
-                      className="w-full bg-[#1e1e1e] border border-[#3c3c3c] rounded px-2 py-1.5 text-xs text-[#e0e0e0] focus:border-[#007aff] focus:outline-none"
-                    />
-                  )}
+                <div className="mt-2">
+                  <input
+                    type="text"
+                    value={state.asciiTextString || 'Hello World. '}
+                    onChange={e => updateState('asciiTextString', e.target.value)}
+                    placeholder="Texto para renderizar a imagem..."
+                    className="w-full bg-[#1e1e1e] border border-[#3c3c3c] rounded px-2 py-1.5 text-xs text-[#e0e0e0] focus:border-[#007aff] focus:outline-none"
+                  />
                 </div>
               )}
             </div>
