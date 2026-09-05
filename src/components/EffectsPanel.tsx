@@ -54,7 +54,7 @@ export const EffectsPanel: React.FC<EffectsPanelProps> = ({
   onRandomize,
   onOpen,
 }) => {
-  const [activeTab, setActiveTab] = useState<'presets' | 'adjust' | 'glitch' | 'lenses' | 'gradient' | 'fx' | 'texture'>('presets');
+  const [activeTab, setActiveTab] = useState<'layers' | 'presets' | 'adjust' | 'glitch' | 'lenses' | 'gradient' | 'fx' | 'texture'>('layers');
   const [panelPos, setPanelPos] = useState({ x: 16, y: 48 });
   const [isDragging, setIsDragging] = useState(false);
   const [draggedLayerId, setDraggedLayerId] = useState<EffectLayerId | null>(null);
@@ -195,6 +195,7 @@ export const EffectsPanel: React.FC<EffectsPanelProps> = ({
   };
 
   const TABS = [
+    { id: 'layers', icon: Layers, label: 'Camadas' },
     { id: 'presets', icon: Film, label: 'Presets' },
     { id: 'adjust', icon: Sun, label: 'Ajustes' },
     { id: 'texture', icon: Grid, label: 'Texturas' },
@@ -215,7 +216,15 @@ export const EffectsPanel: React.FC<EffectsPanelProps> = ({
               {TABS.find(t => t.id === activeTab)?.label || 'Efeitos'}
             </span>
             <div className="flex items-center gap-2">
-              
+              {onRandomize && (
+                <button
+                  onClick={onRandomize}
+                  className="text-[#888] hover:text-amber-400 transition-colors"
+                  title="Randomizar"
+                >
+                  <Shuffle className="w-4 h-4" />
+                </button>
+              )}
               <button
                 onClick={onReset}
                 className="text-[#888] hover:text-[#007aff] transition-colors"
@@ -231,10 +240,19 @@ export const EffectsPanel: React.FC<EffectsPanelProps> = ({
                 <X className="w-5 h-5" />
               </button>
             </div>
-
           </div>
           
           <div className="hidden">
+        <button
+          onClick={() => setActiveTab('layers')}
+          className={`flex-1 min-w-[64px] py-1 px-1 rounded text-center transition-all flex items-center justify-center gap-1 ${
+            activeTab === 'layers' ? 'bg-[#007aff] text-white font-medium shadow-xs' : 'text-[#888] hover:text-white hover:bg-[#3d3d3d]/50'
+          }`}
+          title="Hierarquia de Camadas de Efeitos"
+        >
+          <Layers className="w-3 h-3" />
+          <span>Camadas</span>
+        </button>
         <button
           onClick={() => setActiveTab('presets')}
           className={`flex-1 min-w-[50px] py-1 px-1 rounded text-center transition-all ${
@@ -302,6 +320,536 @@ export const EffectsPanel: React.FC<EffectsPanelProps> = ({
 
       {/* Content Body */}
       <div className="p-4 overflow-y-auto space-y-4 max-h-[calc(100vh-160px)]">
+        {/* ================= TAB: LAYERS HIERARCHY ================= */}
+        {activeTab === 'layers' && (() => {
+          const currentOrder: EffectLayerId[] = (state.layerOrder && state.layerOrder.length > 0)
+            ? state.layerOrder
+            : DEFAULT_LAYER_ORDER;
+
+          // Calculate which layers are active
+          const isTimestampActive = Boolean(state.timestamp);
+          const isVignetteActive = state.vignette > 0;
+          const isTextureActive = state.dustScratches > 0 || state.lightLeak !== 'none';
+          const isNoiseActive = state.noise > 0;
+          const isFisheyeActive = state.lensDistort !== 0;
+          const isGlitchActive = state.chroma > 0 || state.scanlines > 0;
+          const isDatamoshActive = state.datamosh > 0;
+          const isHalftoneActive = state.halftone > 0;
+          const isGlowActive = state.glow > 0;
+          const isThresholdActive = state.threshold > 0;
+          const isGradientActive = state.gradientMode !== 'none';
+          const isCurvesActive = state.curveContrast !== 0 || state.curveShadows !== 0 || state.curveHighlights !== 0 || state.curveMidtones !== 0;
+
+          const isAsciiActive = state.ascii > 0;
+          const isJpegActive = state.jpeg > 0;
+
+          const activeCount = [
+            isTimestampActive,
+            isVignetteActive,
+            isTextureActive,
+            isNoiseActive,
+            isFisheyeActive,
+            isGlitchActive,
+            isDatamoshActive,
+            isHalftoneActive,
+            isAsciiActive,
+            isGlowActive,
+            isThresholdActive,
+            isGradientActive,
+            isCurvesActive,
+            isJpegActive,
+          ].filter(Boolean).length;
+
+          // Toggle helpers
+          const toggleTimestamp = () => {
+            updateState('timestamp', !state.timestamp);
+          };
+
+          const toggleVignette = () => {
+            if (state.vignette > 0) {
+              cacheRef.current.vignette = state.vignette;
+              updateState('vignette', 0);
+            } else {
+              updateState('vignette', cacheRef.current.vignette || 40);
+            }
+          };
+
+          const toggleTexture = () => {
+            if (state.dustScratches > 0 || state.lightLeak !== 'none') {
+              if (state.dustScratches > 0) cacheRef.current.dustScratches = state.dustScratches;
+              if (state.lightLeak !== 'none') cacheRef.current.lightLeak = state.lightLeak;
+              onChange(prev => ({ ...prev, dustScratches: 0, lightLeak: 'none' }));
+            } else {
+              onChange(prev => ({
+                ...prev,
+                dustScratches: cacheRef.current.dustScratches || 35,
+                lightLeak: cacheRef.current.lightLeak || 'golden',
+              }));
+            }
+          };
+
+          const toggleNoise = () => {
+            if (state.noise > 0) {
+              cacheRef.current.noise = state.noise;
+              updateState('noise', 0);
+            } else {
+              updateState('noise', cacheRef.current.noise || 30);
+            }
+          };
+
+          const toggleFisheye = () => {
+            if (state.lensDistort !== 0) {
+              cacheRef.current.lensDistort = state.lensDistort;
+              updateState('lensDistort', 0);
+            } else {
+              updateState('lensDistort', cacheRef.current.lensDistort || 30);
+            }
+          };
+
+          const toggleGlitch = () => {
+            if (state.chroma > 0 || state.scanlines > 0) {
+              if (state.chroma > 0) cacheRef.current.chroma = state.chroma;
+              if (state.scanlines > 0) cacheRef.current.scanlines = state.scanlines;
+              onChange(prev => ({ ...prev, chroma: 0, scanlines: 0 }));
+            } else {
+              onChange(prev => ({
+                ...prev,
+                chroma: cacheRef.current.chroma || 3,
+                scanlines: cacheRef.current.scanlines || 35,
+              }));
+            }
+          };
+
+          const toggleDatamosh = () => {
+            if (state.datamosh > 0) {
+              cacheRef.current.datamosh = state.datamosh;
+              updateState('datamosh', 0);
+            } else {
+              updateState('datamosh', cacheRef.current.datamosh || 45);
+            }
+          };
+
+          const toggleHalftone = () => {
+            if (state.halftone > 0) {
+              cacheRef.current.halftone = state.halftone;
+              updateState('halftone', 0);
+            } else {
+              updateState('halftone', cacheRef.current.halftone || 40);
+            }
+          };
+
+          const toggleGlow = () => {
+            if (state.glow > 0) {
+              cacheRef.current.glow = state.glow;
+              updateState('glow', 0);
+            } else {
+              updateState('glow', cacheRef.current.glow || 35);
+            }
+          };
+
+          const toggleThreshold = () => {
+            if (state.threshold > 0) {
+              cacheRef.current.threshold = state.threshold;
+              updateState('threshold', 0);
+            } else {
+              updateState('threshold', cacheRef.current.threshold || 128);
+            }
+          };
+
+          const toggleAscii = () => {
+            if (state.ascii > 0) {
+              cacheRef.current.ascii = state.ascii;
+              updateState('ascii', 0);
+            } else {
+              updateState('ascii', cacheRef.current.ascii || 40);
+            }
+          };
+
+          const toggleGradient = () => {
+            if (state.gradientMode !== 'none') {
+              cacheRef.current.gradientMode = state.gradientMode;
+              updateState('gradientMode', 'none');
+            } else {
+              updateState('gradientMode', cacheRef.current.gradientMode || 'cyberpunk');
+            }
+          };
+
+          const toggleCurves = () => {
+            if (isCurvesActive) {
+              cacheRef.current.curveContrast = state.curveContrast;
+              onChange(prev => ({ ...prev, curveContrast: 0, curveShadows: 0, curveHighlights: 0, curveMidtones: 0 }));
+            } else {
+              onChange(prev => ({ ...prev, curveContrast: cacheRef.current.curveContrast || 25 }));
+            }
+          };
+
+          // Layer info dictionary
+          const layerDetails: Partial<Record<EffectLayerId, {
+            label: string;
+            sublabel: string;
+            icon: React.ComponentType<{ className?: string }>;
+            iconColor: string;
+            isActive: boolean;
+            valueText: string;
+            onToggle: () => void;
+            onGo: () => void;
+          }>> = {
+            timestamp: {
+              label: 'Timestamp LED',
+              sublabel: 'Carimbo de data/hora estilo Digicam Y2K',
+              icon: Clock,
+              iconColor: 'text-[#ff9500]',
+              isActive: isTimestampActive,
+              valueText: state.timestamp ? (state.dateText === 'DATE_NOW' ? 'Hoje' : state.dateText) : 'Inativo',
+              onToggle: toggleTimestamp,
+              onGo: () => setActiveTab('adjust'),
+            },
+            vignette: {
+              label: 'Vinheta Analógica',
+              sublabel: 'Escurecimento radial nas bordas do quadro',
+              icon: Circle,
+              iconColor: 'text-[#af52de]',
+              isActive: isVignetteActive,
+              valueText: isVignetteActive ? `${state.vignette}%` : 'Inativo',
+              onToggle: toggleVignette,
+              onGo: () => setActiveTab('adjust'),
+            },
+            texture: {
+              label: 'Poeira, Riscos & Vazamento',
+              sublabel: 'Partículas de filme analógico e flare óptico',
+              icon: Film,
+              iconColor: 'text-[#ffcc00]',
+              isActive: isTextureActive,
+              valueText: isTextureActive ? `Poeira: ${state.dustScratches}% | Luz: ${state.lightLeak}%` : 'Inativo',
+              onToggle: toggleTexture,
+              onGo: () => setActiveTab('texture'),
+            },
+            fisheye: {
+              label: 'Lente Fisheye',
+              sublabel: 'Distorção óptica (Olho de Peixe)',
+              icon: Camera,
+              iconColor: 'text-[#ff3b30]',
+              isActive: isFisheyeActive,
+              valueText: isFisheyeActive ? `Distorção: ${state.lensDistort}` : 'Inativo',
+              onToggle: toggleFisheye,
+              onGo: () => setActiveTab('fx'),
+            },
+            noise: {
+              label: 'Granulado de Filme / Grão',
+              sublabel: 'Ruído de emulsão química 35mm / 8mm',
+              icon: Activity,
+              iconColor: 'text-[#34c759]',
+              isActive: isNoiseActive,
+              valueText: isNoiseActive ? `${state.noise}%` : 'Inativo',
+              onToggle: toggleNoise,
+              onGo: () => setActiveTab('texture'),
+            },
+            glitch: {
+              label: 'Aberração & Scanlines CRT',
+              sublabel: 'Separação RGB e linhas de varredura VHS',
+              icon: Zap,
+              iconColor: 'text-[#5856d6]',
+              isActive: isGlitchActive,
+              valueText: isGlitchActive ? `Chroma: ${state.chroma}px | Scan: ${state.scanlines}%` : 'Inativo',
+              onToggle: toggleGlitch,
+              onGo: () => setActiveTab('glitch'),
+            },
+            datamosh: {
+              label: 'Pixelmosh / Datamosh',
+              sublabel: 'Distorção de macroblocos e pixel melt digital',
+              icon: Sparkles,
+              iconColor: 'text-red-400',
+              isActive: isDatamoshActive,
+              valueText: isDatamoshActive ? `Mosh: ${state.datamosh}% | Bloco: ${state.datamoshBlockSize}px` : 'Inativo',
+              onToggle: toggleDatamosh,
+              onGo: () => setActiveTab('glitch'),
+            },
+            halftone: {
+              label: 'Halftone / Retícula',
+              sublabel: 'Pontos de impressão analógica offset',
+              icon: Grid,
+              iconColor: 'text-[#00c7be]',
+              isActive: isHalftoneActive,
+              valueText: isHalftoneActive ? `${state.halftone}%` : 'Inativo',
+              onToggle: toggleHalftone,
+              onGo: () => setActiveTab('fx'),
+            },
+            ascii: {
+              label: 'Arte ASCII',
+              sublabel: 'Renderização em caracteres de texto',
+              icon: Terminal,
+              iconColor: 'text-[#007aff]',
+              isActive: isAsciiActive,
+              valueText: isAsciiActive ? `${state.ascii}%` : 'Inativo',
+              onToggle: toggleAscii,
+              onGo: () => setActiveTab('fx'),
+            },
+            threshold: {
+              label: 'Limiar (Threshold)',
+              sublabel: 'Ponto de corte P&B extremo',
+              icon: Contrast,
+              iconColor: 'text-[#64d2ff]',
+              isActive: isThresholdActive,
+              valueText: isThresholdActive ? `Nível: ${state.threshold}` : 'Inativo',
+              onToggle: toggleThreshold,
+              onGo: () => setActiveTab('graphic'),
+            },
+            glow: {
+              label: 'Glow & Bloom Óptico',
+              sublabel: 'Difusão luminosa especular com halo transparente',
+              icon: Sun,
+              iconColor: 'text-[#ff2d55]',
+              isActive: isGlowActive,
+              valueText: isGlowActive ? `${state.glow}%` : 'Inativo',
+              onToggle: toggleGlow,
+              onGo: () => setActiveTab('fx'),
+            },
+            gradient: {
+              label: 'Mapeamento Gradiente',
+              sublabel: 'Tonalização em dois tons de sombras e luzes',
+              icon: Palette,
+              iconColor: 'text-[#30b0c7]',
+              isActive: isGradientActive,
+              valueText: isGradientActive ? state.gradientMode.toUpperCase() : 'Inativo',
+              onToggle: toggleGradient,
+              onGo: () => setActiveTab('gradient'),
+            },
+            curves: {
+              label: 'Curvas Tonais & S-Curve',
+              sublabel: 'Correção de faixa dinâmica e pretos foscos',
+              icon: Sliders,
+              iconColor: 'text-[#32ade6]',
+              isActive: isCurvesActive,
+              valueText: isCurvesActive ? `Contraste: ${state.curveContrast}` : 'Inativo',
+              onToggle: toggleCurves,
+              onGo: () => setActiveTab('adjust'),
+            },
+            base: {
+              label: 'Imagem Base & Lente',
+              sublabel: 'Entrada rasterizada, exposição e saturação',
+              icon: Eye,
+              iconColor: 'text-[#007aff]',
+              isActive: true,
+              valueText: `Exp: ${state.exposure} | Sat: ${state.saturation}`,
+              onToggle: () => {},
+              onGo: () => setActiveTab('adjust'),
+            },
+            jpeg: {
+              label: 'Compressão JPEG',
+              sublabel: 'Artefatos DCT e ringing',
+              icon: Eye,
+              iconColor: 'text-[#007aff]',
+              isActive: state.jpeg > 0,
+              valueText: `Intensidade: ${state.jpeg}`,
+              onToggle: () => updateState('jpeg', state.jpeg > 0 ? 0 : 5),
+              onGo: () => setActiveTab('textures'),
+            },
+          };
+
+          // Reordering helpers
+          const moveLayer = (layerId: EffectLayerId, direction: 'up' | 'down') => {
+            const order = [...currentOrder];
+            const idx = order.indexOf(layerId);
+            if (idx === -1) return;
+            // Moving visually UP means increasing execution index towards top
+            const targetIdx = direction === 'up' ? idx + 1 : idx - 1;
+            if (targetIdx < 0 || targetIdx >= order.length) return;
+            const temp = order[idx];
+            order[idx] = order[targetIdx];
+            order[targetIdx] = temp;
+            updateState('layerOrder', order);
+          };
+
+          const resetOrder = () => {
+            onChange(prev => ({
+              ...prev,
+              layerOrder: [...DEFAULT_LAYER_ORDER],
+            }));
+          };
+
+          const randomizeOrder = () => {
+            if (onRandomize) {
+              onRandomize();
+              return;
+            }
+            const order = [...currentOrder];
+            for (let i = order.length - 1; i > 0; i--) {
+              const j = Math.floor(Math.random() * (i + 1));
+              [order[i], order[j]] = [order[j], order[i]];
+            }
+            updateState('layerOrder', order);
+          };
+
+          // Visual items: displayed from top of stack (last executed) to bottom (first executed)
+          const visualLayers = currentOrder.map((id, executionIndex) => ({
+            id,
+            executionIndex,
+            ...(layerDetails[id] || { label: id, sublabel: '', icon: Layers, iconColor: 'text-white', isActive: false, valueText: '', onToggle: () => {}, onGo: () => {} }),
+          })).reverse();
+
+          return (
+            <div className="space-y-3">
+              {/* Hierarchy Info Header & Controls */}
+              <div className="bg-[#1c1c1e] p-3 rounded-lg border border-[#333] space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Layers className="w-4 h-4 text-[#007aff]" />
+                    <span className="text-xs font-semibold text-white">
+                      Hierarquia de Camadas ({visualLayers.length})
+                    </span>
+                  </div>
+                  <span className="text-[10px] bg-[#2c2c2e] text-[#007aff] px-2 py-0.5 rounded-full font-bold border border-[#007aff]/30">
+                    {activeCount} Ativos
+                  </span>
+                </div>
+                <p className="text-[11px] text-[#999] leading-relaxed">
+                  A ordem das camadas altera diretamente o resultado final da imagem. Use as setas <span className="text-white font-mono">▲ ▼</span> para reposicionar as camadas ou clique em <b>Randomizar</b>.
+                </p>
+                <div className="flex items-center gap-2 pt-1 border-t border-[#2a2a2c]">
+                  <button
+                    onClick={randomizeOrder}
+                    className="flex-1 py-1.5 px-2 rounded-md bg-[#2d2d2d] hover:bg-[#383838] border border-amber-500/30 text-amber-400 hover:text-amber-300 text-[11px] font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                    title="Randomizar ordem e efeitos"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Randomizar</span>
+                  </button>
+                  <button
+                    onClick={resetOrder}
+                    className="py-1.5 px-2.5 rounded-md bg-[#2d2d2d] hover:bg-[#383838] border border-[#3c3c3c] text-[#8e8e93] hover:text-white text-[11px] font-medium flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                    title="Restaurar ordem original de camadas"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    <span>Restaurar</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Layer Stack (Reorderable visual pipeline) */}
+              <div className="space-y-1.5" onDragOver={(e) => e.preventDefault()}>
+                {visualLayers.map((layer) => {
+                  const IconComp = layer.icon;
+                  const isTopInStack = layer.executionIndex === currentOrder.length - 1;
+                  const isBottomInStack = layer.executionIndex === 0;
+                  const levelNum = layer.executionIndex + 1;
+
+                  return (
+                    <div
+                      key={layer.id}
+                      draggable
+                      onDragStart={(e) => {
+                        setDraggedLayerId(layer.id);
+                        e.dataTransfer.effectAllowed = 'move';
+                      }}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        if (draggedLayerId && draggedLayerId !== layer.id) {
+                          const newOrder = [...currentOrder];
+                          const fromIndex = newOrder.indexOf(draggedLayerId);
+                          const toIndex = newOrder.indexOf(layer.id);
+                          if (fromIndex !== -1 && toIndex !== -1) {
+                            newOrder.splice(fromIndex, 1);
+                            newOrder.splice(toIndex, 0, draggedLayerId);
+                            updateState('layerOrder', newOrder);
+                          }
+                        }
+                        setDraggedLayerId(null);
+                      }}
+                      onDragEnd={() => setDraggedLayerId(null)}
+                      className={`flex items-center justify-between p-2 rounded-lg border transition-all ${
+                        draggedLayerId === layer.id ? 'opacity-30' : ''
+                      } ${
+                        layer.isActive
+                          ? 'bg-[#252528] border-[#444] shadow-xs cursor-grab active:cursor-grabbing'
+                          : 'bg-[#18181a] border-[#2a2a2c] opacity-60 cursor-grab active:cursor-grabbing'
+                      }`}
+                    >
+                      {/* Left: Move buttons + Level badge + Icon + Info */}
+                      <div className="flex items-center gap-2 min-w-0 flex-1 pointer-events-none">
+                        {/* Drag handle */}
+                        <div className="flex items-center justify-center shrink-0 text-[#555]">
+                          <GripVertical className="w-3.5 h-3.5" />
+                        </div>
+
+                        {/* Level badge */}
+                        <div
+                          className={`w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold shrink-0 ${
+                            isTopInStack
+                              ? 'bg-[#ff9500]/20 text-[#ff9500] border border-[#ff9500]/40'
+                              : isBottomInStack
+                              ? 'bg-[#007aff]/20 text-[#007aff] border border-[#007aff]/40'
+                              : layer.isActive
+                              ? 'bg-[#333] text-white'
+                              : 'bg-[#222] text-[#666]'
+                          }`}
+                          title={`Ordem de Renderização #${levelNum}`}
+                        >
+                          {levelNum}
+                        </div>
+
+                        {/* Layer icon */}
+                        <IconComp className={`w-3.5 h-3.5 shrink-0 ${layer.isActive ? layer.iconColor : 'text-[#666]'}`} />
+
+                        {/* Labels */}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className={`text-[11px] font-medium truncate ${layer.isActive ? 'text-white' : 'text-[#777]'}`}>
+                              {layer.label}
+                            </span>
+                            {isTopInStack && (
+                              <span className="text-[9px] bg-[#ff9500]/20 text-[#ff9500] px-1 py-0.2 rounded font-semibold shrink-0">
+                                TOPO
+                              </span>
+                            )}
+                            {isBottomInStack && (
+                              <span className="text-[9px] bg-[#007aff]/20 text-[#007aff] px-1 py-0.2 rounded font-semibold shrink-0">
+                                BASE
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[10px] text-[#888] truncate">
+                            {layer.valueText}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Right: Toggle Eye + Go to Setting */}
+                      <div className="flex items-center gap-1 shrink-0 ml-2">
+                        {/* Visibility Toggle Eye */}
+                        {!isBottomInStack && (
+                          <button
+                            onClick={layer.onToggle}
+                            className={`p-1.5 rounded transition-colors cursor-pointer ${
+                              layer.isActive
+                                ? 'text-[#34c759] hover:bg-[#34c759]/20'
+                                : 'text-[#666] hover:bg-[#333]'
+                            }`}
+                            title={layer.isActive ? 'Ocultar esta camada' : 'Ativar esta camada'}
+                          >
+                            {layer.isActive ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                          </button>
+                        )}
+
+                        {/* Navigate to setting */}
+                        <button
+                          onClick={layer.onGo}
+                          className="p-1 rounded text-[#888] hover:text-white hover:bg-[#333] transition-colors cursor-pointer"
+                          title="Ajustar parâmetros desta camada"
+                        >
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
+
         {/* ================= TAB: PRESETS ================= */}
         {activeTab === 'presets' && (
           <div className="space-y-3">
@@ -820,7 +1368,7 @@ export const EffectsPanel: React.FC<EffectsPanelProps> = ({
                   {(state.customGradientStops || [
                     { color: state.duoShadow, pos: 0 },
                     { color: state.duoLight, pos: 100 }
-                  ]).map((stop, index, arr) => (
+                  ]).sort((a,b) => a.pos - b.pos).map((stop, index, arr) => (
                     <div key={index} className="flex items-center gap-2 group">
                       <input
                         type="color"
@@ -862,10 +1410,10 @@ export const EffectsPanel: React.FC<EffectsPanelProps> = ({
                 </div>
                 
                 <div className="h-4 rounded mt-4 border border-[#3c3c3c]" style={{
-                  background: `linear-gradient(to right, ${[...(state.customGradientStops || [
+                  background: `linear-gradient(to right, ${(state.customGradientStops || [
                     { color: state.duoShadow, pos: 0 },
                     { color: state.duoLight, pos: 100 }
-                  ])].sort((a,b) => a.pos - b.pos).map(s => `${s.color} ${s.pos}%`).join(', ')})`
+                  ]).sort((a,b) => a.pos - b.pos).map(s => `${s.color} ${s.pos}%`).join(', ')})`
                 }} />
               </div>
             )}
@@ -964,7 +1512,7 @@ export const EffectsPanel: React.FC<EffectsPanelProps> = ({
               />
             </div>
 
-                        {/* Halftone */}
+            {/* Halftone */}
             <div className="pt-3 border-t border-[#3c3c3c]">
               <div className="flex justify-between text-[#e0e0e0] mb-1">
                 <span>Halftone Reticulado (Pop-Art)</span>
@@ -1012,79 +1560,7 @@ export const EffectsPanel: React.FC<EffectsPanelProps> = ({
               )}
             </div>
 
-            {/* Cyber Trace / HUD */}
-            <div className="pt-3 border-t border-[#3c3c3c]">
-              <div className="flex justify-between text-[#e0e0e0] mb-1">
-                <span>Cyber Trace (Nós e Conexões)</span>
-                <span className="font-mono text-[#007aff]">{state.cyberTrace}%</span>
-              </div>
-              <input
-                type="range" min="0" max="100" value={state.cyberTrace}
-                onChange={e => updateState('cyberTrace', parseInt(e.target.value))}
-                className="w-full"
-              />
-
-              {state.cyberTrace > 0 && (
-                <div className="mt-2 space-y-2 p-2 bg-[#1e1e1e] rounded-lg border border-[#3c3c3c]">
-                  {/* Density */}
-                  <div>
-                    <div className="flex justify-between text-[#e0e0e0] text-[10px] mb-1">
-                      <span>Densidade da Rede</span>
-                      <span className="font-mono text-[#007aff]">{state.cyberTraceDensity}</span>
-                    </div>
-                    <input
-                      type="range" min="0" max="100" value={state.cyberTraceDensity}
-                      onChange={e => updateState('cyberTraceDensity', parseInt(e.target.value))}
-                      className="w-full h-1"
-                    />
-                  </div>
-                  
-                  {/* Threshold */}
-                  <div>
-                    <div className="flex justify-between text-[#e0e0e0] text-[10px] mb-1">
-                      <span>Threshold (Limiar de Escuridão)</span>
-                      <span className="font-mono text-[#007aff]">{state.cyberTraceThreshold}</span>
-                    </div>
-                    <input
-                      type="range" min="0" max="255" value={state.cyberTraceThreshold}
-                      onChange={e => updateState('cyberTraceThreshold', parseInt(e.target.value))}
-                      className="w-full h-1"
-                    />
-                  </div>
-
-                  {/* Mode */}
-                  <div className="flex gap-1">
-                    {['straight', 'orthogonal', 'curve'].map(mode => (
-                      <button
-                        key={mode}
-                        onClick={() => updateState('cyberTraceMode', mode as any)}
-                        className={`flex-1 py-1 rounded border text-[9px] font-medium transition-all ${
-                          state.cyberTraceMode === mode
-                            ? 'bg-[#007aff] border-[#007aff] text-white'
-                            : 'bg-[#1a1a1a] border-[#3c3c3c] text-[#888] hover:text-white'
-                        }`}
-                      >
-                        {mode === 'straight' ? 'Reto' : mode === 'orthogonal' ? 'Zigzag' : 'Curvo'}
-                      </button>
-                    ))}
-                  </div>
-                  
-                  {/* Color Selector */}
-                  <div className="flex gap-1 justify-between pt-1">
-                     {['#22c55e', '#ef4444', '#38bdf8', '#ffa200', '#ffffff', '#a855f7'].map(color => (
-                        <button
-                          key={color}
-                          onClick={() => updateState('cyberTraceColor', color)}
-                          className={`w-6 h-6 rounded-full border-2 transition-all ${state.cyberTraceColor === color ? 'scale-110 border-white' : 'border-transparent hover:scale-110'}`}
-                          style={{ backgroundColor: color, boxShadow: `0 0 10px ${color}66` }}
-                          title={color}
-                        />
-                     ))}
-                  </div>
-                </div>
-              )}
-            </div>
-{/* ASCII */}
+            {/* ASCII */}
             <div className="pt-3 border-t border-[#3c3c3c]">
               <div className="flex justify-between text-[#e0e0e0] mb-1">
                 <span>Arte ASCII (Terminal Retro)</span>
@@ -1132,54 +1608,6 @@ export const EffectsPanel: React.FC<EffectsPanelProps> = ({
               )}
             </div>
 
-            {/* ASCII TEXT */}
-            <div className="pt-3 border-t border-[#3c3c3c]">
-              <div className="flex justify-between text-[#e0e0e0] mb-1">
-                <span>Texto de Imagem ASCII</span>
-                <span className="font-mono text-[#007aff]">{state.asciiText === 0 ? 'Desligado' : `${state.asciiText}%`}</span>
-              </div>
-              <input
-                type="range" min="0" max="100" step="1" value={state.asciiText}
-                onChange={e => updateState('asciiText', parseInt(e.target.value))}
-                className="w-full"
-              />
-
-              {state.asciiText > 0 && (
-                <div className="mt-2 space-y-2">
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => updateState('asciiTextRandom', false)}
-                      className={`flex-1 py-1.5 rounded-lg border text-[10px] font-medium transition-all ${
-                        !state.asciiTextRandom
-                          ? 'bg-[#007aff] border-[#007aff] text-white'
-                          : 'bg-[#1e1e1e] border-[#3c3c3c] text-[#888] hover:text-white'
-                      }`}
-                    >
-                      Texto Fixo
-                    </button>
-                    <button
-                      onClick={() => updateState('asciiTextRandom', true)}
-                      className={`flex-1 py-1.5 rounded-lg border text-[10px] font-medium transition-all ${
-                        state.asciiTextRandom
-                          ? 'bg-[#007aff] border-[#007aff] text-white'
-                          : 'bg-[#1e1e1e] border-[#3c3c3c] text-[#888] hover:text-white'
-                      }`}
-                    >
-                      Caos Aleatório
-                    </button>
-                  </div>
-                  {!state.asciiTextRandom && (
-                    <input
-                      type="text"
-                      value={state.asciiTextString || 'Hello World. '}
-                      onChange={e => updateState('asciiTextString', e.target.value)}
-                      placeholder="Texto para renderizar a imagem..."
-                      className="w-full bg-[#1e1e1e] border border-[#3c3c3c] rounded px-2 py-1.5 text-xs text-[#e0e0e0] focus:border-[#007aff] focus:outline-none"
-                    />
-                  )}
-                </div>
-              )}
-            </div>
           </div>
         )}
 

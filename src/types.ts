@@ -115,9 +115,6 @@ export interface PhotoEffectsState {
   // ASCII & Shapes & Airbrush
   ascii: number; // 0 to 100%
   asciiMode?: 'color' | 'bw' | 'green';
-  asciiText: number; // 0 to 100%
-  asciiTextString: string;
-  asciiTextRandom: boolean;
   shapes: number; // 0 to 100%
   shapesMode: 'bw' | 'color' | 'overlay';
   airbrush: number; // 0 to 100%
@@ -150,13 +147,6 @@ export interface PhotoEffectsState {
   emboss: number; // 0 to 100%
   invert: boolean;
 
-  // HUD / Cyber Trace
-  cyberTrace: number; // 0 to 100%
-  cyberTraceDensity: number; // 0 to 100
-  cyberTraceThreshold: number; // 0 to 255
-  cyberTraceMode: 'straight' | 'orthogonal' | 'curve';
-  cyberTraceColor: string;
-
   // LED Camera Timestamp
   timestamp: boolean;
   dateText: string;
@@ -164,24 +154,16 @@ export interface PhotoEffectsState {
 
   // Dynamic Effect Layer Hierarchy (Rendering order from bottom/first to top/last)
   layerOrder: EffectLayerId[];
-  hiddenLayers: EffectLayerId[];
 }
 
 export type EffectLayerId =
-  | 'lens'
-  | 'brightness'
-  | 'contrast'
-  | 'saturation'
-  | 'exposure'
-  | 'warmth'
-  | 'tint'
+  | 'base'
   | 'curves'
   | 'gradient'
   | 'glow'
   | 'threshold'
   | 'halftone'
   | 'ascii'
-  | 'asciiText'
   | 'datamosh'
   | 'glitch'
   | 'noise'
@@ -189,24 +171,15 @@ export type EffectLayerId =
   | 'texture'
   | 'vignette'
   | 'jpeg'
-  | 'timestamp'
-  | 'cyberTrace';
+  | 'timestamp';
 
 export const DEFAULT_LAYER_ORDER: EffectLayerId[] = [
-  'lens',
-  'brightness',
-  'contrast',
-  'saturation',
-  'exposure',
-  'warmth',
-  'tint',
+  'base',
   'threshold',
   'curves',
   'gradient',
   'ascii',
-  'asciiText',
   'halftone',
-  'cyberTrace',
   'glow',
   'datamosh',
   'glitch',
@@ -248,9 +221,6 @@ export const DEFAULT_PHOTO_EFFECTS: PhotoEffectsState = {
   halftoneMode: 'overlay',
   ascii: 0,
   asciiMode: 'color',
-  asciiText: 0,
-  asciiTextString: 'Hello World. ',
-  asciiTextRandom: false, 
   shapes: 0,
   shapesMode: 'overlay',
   airbrush: 0,
@@ -274,16 +244,10 @@ export const DEFAULT_PHOTO_EFFECTS: PhotoEffectsState = {
   dustScratches: 0,
   emboss: 0,
   invert: false,
-  cyberTrace: 0,
-  cyberTraceDensity: 50,
-  cyberTraceThreshold: 100,
-  cyberTraceMode: 'orthogonal',
-  cyberTraceColor: '#22c55e',
   timestamp: false,
   dateText: "'03 09 26",
   timestampColor: '#ffa200',
   layerOrder: [...DEFAULT_LAYER_ORDER],
-  hiddenLayers: [],
 };
 
 // 3D Studio Configuration

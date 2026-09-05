@@ -3,13 +3,7 @@ import { GLPipeline } from './webgl/pipeline';
 import { baseColorShader, lutColorShader, gradientMapShader, noiseShader, halftoneShader, vignetteShader, glitchShader, datamoshShader, thresholdShader, fisheyeShader } from './webgl/shaders';
 import { buildCurveLUT, buildGradientMapLUT } from './imageProcessing';
 
-import { applyLensLayer,
-  applyBrightnessLayer,
-  applyContrastLayer,
-  applySaturationLayer,
-  applyExposureLayer,
-  applyWarmthLayer,
-  applyTintLayer, applyThresholdLayer, applyCurvesLayer, applyGradientLayer, applyGlowLayer, applyHalftoneLayer, applyAsciiLayer, applyAsciiTextLayer, applyNoiseLayer, applyTextureLayer, applyVignetteLayer, applyFisheyeLayer, applyGlitchLayer, applyDatamoshLayer, applyTimestampLayer, applyJpegLayer, applyCyberTraceLayer, PipelineManager } from './imageProcessing';
+import { applyBaseLayer, applyThresholdLayer, applyCurvesLayer, applyGradientLayer, applyGlowLayer, applyHalftoneLayer, applyAsciiLayer, applyNoiseLayer, applyTextureLayer, applyVignetteLayer, applyFisheyeLayer, applyGlitchLayer, applyDatamoshLayer, applyTimestampLayer, applyJpegLayer, PipelineManager } from './imageProcessing';
 
 // Singleton instance to prevent creating WebGL context on every frame
 let pipeline: GLPipeline | null = null;
@@ -29,8 +23,7 @@ export function renderProcessedImageWebGL(
 
   pipeline.loadSource(source);
   const orderRaw = (state.layerOrder && state.layerOrder.length > 0) ? state.layerOrder : DEFAULT_LAYER_ORDER;
-  const hiddenLayers = state.hiddenLayers || [];
-  const order = orderRaw.filter(id => id !== 'texture' && !hiddenLayers.includes(id));
+  const order = orderRaw.filter(id => id !== 'texture');
   
   let cpuMode = false;
   let cpuPipeline: PipelineManager | null = null;
@@ -40,21 +33,13 @@ export function renderProcessedImageWebGL(
       // Once we drop into CPU mode, we stay in CPU mode for the rest of the layers
       if (!cpuPipeline) break;
       switch (layerId) {
-        case 'lens': applyLensLayer(cpuPipeline, state); break;
-        case 'brightness': applyBrightnessLayer(cpuPipeline, state); break;
-        case 'contrast': applyContrastLayer(cpuPipeline, state); break;
-        case 'saturation': applySaturationLayer(cpuPipeline, state); break;
-        case 'exposure': applyExposureLayer(cpuPipeline, state); break;
-        case 'warmth': applyWarmthLayer(cpuPipeline, state); break;
-        case 'tint': applyTintLayer(cpuPipeline, state); break;
+        case 'base': applyBaseLayer(cpuPipeline, state, targetW, targetH); break;
             case 'threshold': applyThresholdLayer(cpuPipeline, state, targetW, targetH); break;
         case 'curves': applyCurvesLayer(cpuPipeline, state, targetW, targetH); break;
         case 'gradient': applyGradientLayer(cpuPipeline, state, targetW, targetH); break;
         case 'glow': applyGlowLayer(cpuPipeline, state, targetW, targetH); break;
         case 'halftone': applyHalftoneLayer(cpuPipeline, state, targetW, targetH, hasTransparency); break;
         case 'ascii': applyAsciiLayer(cpuPipeline, state, targetW, targetH, hasTransparency); break;
-        case 'asciiText': applyAsciiTextLayer(cpuPipeline, state, targetW, targetH, hasTransparency); break;
-            case 'cyberTrace': applyCyberTraceLayer(cpuPipeline, state, targetW, targetH); break;
         
         case 'timestamp': applyTimestampLayer(cpuPipeline, state, targetW, targetH); break;
         case 'vignette': applyVignetteLayer(cpuPipeline, state, targetW, targetH, hasTransparency); break;
@@ -69,20 +54,7 @@ export function renderProcessedImageWebGL(
 
     // WebGL passes
     switch (layerId) {
-      case 'lens': 
-        applyBaseLayerWebGL(pipeline, state, 'lens'); break;
-      case 'brightness': 
-        applyBaseLayerWebGL(pipeline, state, 'brightness'); break;
-      case 'contrast': 
-        applyBaseLayerWebGL(pipeline, state, 'contrast'); break;
-      case 'saturation': 
-        applyBaseLayerWebGL(pipeline, state, 'saturation'); break;
-      case 'exposure': 
-        applyBaseLayerWebGL(pipeline, state, 'exposure'); break;
-      case 'warmth': 
-        applyBaseLayerWebGL(pipeline, state, 'warmth'); break;
-      case 'tint': 
-        applyBaseLayerWebGL(pipeline, state, 'tint'); break;
+      case 'base': applyBaseLayerWebGL(pipeline, state); break;
       case 'threshold': applyThresholdLayerWebGL(pipeline, state); break;
       case 'curves': applyCurvesLayerWebGL(pipeline, state); break;
       case 'gradient': applyGradientLayerWebGL(pipeline, state); break;
@@ -109,21 +81,13 @@ export function renderProcessedImageWebGL(
         // now apply the layer that triggered the fallback
         if (cpuPipeline) {
           switch (layerId as EffectLayerId) {
-            case 'lens': applyLensLayer(cpuPipeline, state); break;
-            case 'brightness': applyBrightnessLayer(cpuPipeline, state); break;
-            case 'contrast': applyContrastLayer(cpuPipeline, state); break;
-            case 'saturation': applySaturationLayer(cpuPipeline, state); break;
-            case 'exposure': applyExposureLayer(cpuPipeline, state); break;
-            case 'warmth': applyWarmthLayer(cpuPipeline, state); break;
-            case 'tint': applyTintLayer(cpuPipeline, state); break;
+            case 'base': applyBaseLayer(cpuPipeline, state, targetW, targetH); break;
             case 'threshold': applyThresholdLayer(cpuPipeline, state, targetW, targetH); break;
             case 'curves': applyCurvesLayer(cpuPipeline, state, targetW, targetH); break;
             case 'gradient': applyGradientLayer(cpuPipeline, state, targetW, targetH); break;
             case 'glow': applyGlowLayer(cpuPipeline, state, targetW, targetH); break;
             case 'halftone': applyHalftoneLayer(cpuPipeline, state, targetW, targetH, hasTransparency); break;
             case 'ascii': applyAsciiLayer(cpuPipeline, state, targetW, targetH, hasTransparency); break;
-            case 'asciiText': applyAsciiTextLayer(cpuPipeline, state, targetW, targetH, hasTransparency); break;
-            case 'cyberTrace': applyCyberTraceLayer(cpuPipeline, state, targetW, targetH); break;
             
             case 'timestamp': applyTimestampLayer(cpuPipeline, state, targetW, targetH); break;
             case 'vignette': applyVignetteLayer(cpuPipeline, state, targetW, targetH, hasTransparency); break;
@@ -197,36 +161,33 @@ export function renderProcessedImageWebGL(
   }
 }
 
-function applyBaseLayerWebGL(pipeline: GLPipeline, state: PhotoEffectsState, mode: string) {
-    const bright = mode === 'brightness' ? (state.brightness || 0) * 1.25 : 0;
-  const contrast = mode === 'contrast' ? ((state.contrast || 0) + 100) / 100 : 1.0;
-  const sat = mode === 'saturation' ? ((state.saturation || 0) + 100) / 100 : 1.0;
-  const exp = mode === 'exposure' ? Math.pow(2, (state.exposure || 0) / 50) : 1.0;
-  const warmth = mode === 'warmth' ? (state.warmth || 0) / 255.0 : 0;
-  const tint = mode === 'tint' ? (state.tint || 0) / 255.0 : 0;
-  const solarizeVal = mode === 'lens' ? (state.solarize || 0) / 100.0 : 0;
+function applyBaseLayerWebGL(pipeline: GLPipeline, state: PhotoEffectsState) {
+  const bright = (state.brightness || 0) * 1.25;
+  const contrast = ((state.contrast || 0) + 100) / 100;
+  const sat = ((state.saturation || 0) + 100) / 100;
+  const exp = Math.pow(2, (state.exposure || 0) / 50);
+  const warmth = (state.warmth || 0) / 255.0; // scale down
+  const tint = (state.tint || 0) / 255.0; // scale down
+  const solarizeVal = (state.solarize || 0) / 100.0;
   const thresholdVal = 0.0;
   const thresholdNoiseVal = 0.0;
-  const invertVal = mode === 'lens' ? state.invert : false;
 
   let presetId = 0;
-  if (mode === 'lens') {
-    const presets = [
-      'none', 
-      'digicam', 
-      'insta2012', 
-      'disposable', 
-      'y2k', 
-      'cinematic_teal', 
-      'polaroid_vintage', 
-      'monochrome_noir',
-      'iphone4',
-      'iphone8',
-      'y2k_dream',
-      'y2k_cyber'
-    ];
-    presetId = Math.max(0, presets.indexOf(state.preset || 'none'));
-  }
+  const presets = [
+    'none', 
+    'digicam', 
+    'insta2012', 
+    'disposable', 
+    'y2k', 
+    'cinematic_teal', 
+    'polaroid_vintage', 
+    'monochrome_noir',
+    'iphone4',
+    'iphone8',
+    'y2k_dream',
+    'y2k_cyber'
+  ];
+  presetId = Math.max(0, presets.indexOf(state.preset || 'none'));
 
   const isIdentity = (
     bright === 0 &&
@@ -238,7 +199,7 @@ function applyBaseLayerWebGL(pipeline: GLPipeline, state: PhotoEffectsState, mod
     presetId === 0 &&
     thresholdVal === 0 &&
     solarizeVal === 0 &&
-    !invertVal
+    !state.invert
   );
 
   if (isIdentity) return;
@@ -253,7 +214,7 @@ function applyBaseLayerWebGL(pipeline: GLPipeline, state: PhotoEffectsState, mod
     gl.uniform1f(gl.getUniformLocation(program, 'u_threshold'), thresholdVal);
     gl.uniform1f(gl.getUniformLocation(program, 'u_threshold_noise'), thresholdNoiseVal);
     gl.uniform1f(gl.getUniformLocation(program, 'u_solarize'), solarizeVal);
-    gl.uniform1i(gl.getUniformLocation(program, 'u_invert'), invertVal ? 1 : 0);
+    gl.uniform1i(gl.getUniformLocation(program, 'u_invert'), state.invert ? 1 : 0);
     gl.uniform1i(gl.getUniformLocation(program, 'u_preset'), presetId);
   });
 }
